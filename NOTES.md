@@ -1,1 +1,1 @@
-Logos officiels de Modrinth et CurseForge dans le menu et sur la page Mods.
+Page Mods : interrupteur à glisser entre Modrinth et CurseForge, avec leurs logos de chaque côté.

@@ -73,6 +73,66 @@
             </Setter>
         </Style>
 
+        <!-- Interrupteur Modrinth / CurseForge (rond blanc qui glisse) -->
+        <Style x:Key="SourceToggle" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Track" Width="60" Height="32" CornerRadius="16" BorderThickness="1"
+                                BorderBrush="#33FFFFFF">
+                            <Border.Background>
+                                <SolidColorBrush x:Name="TrackBrush" Color="#1BD96A"/>
+                            </Border.Background>
+                            <Ellipse Width="24" Height="24" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.4"/>
+                                </Ellipse.Effect>
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="KnobMove" X="0"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="KnobMove" Storyboard.TargetProperty="X"
+                                                             To="28" Duration="0:0:0.22">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <ColorAnimation Storyboard.TargetName="TrackBrush" Storyboard.TargetProperty="Color"
+                                                            To="#F16436" Duration="0:0:0.22"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="KnobMove" Storyboard.TargetProperty="X"
+                                                             To="0" Duration="0:0:0.22">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <ColorAnimation Storyboard.TargetName="TrackBrush" Storyboard.TargetProperty="Color"
+                                                            To="#1BD96A" Duration="0:0:0.22"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Carte en verre -->
         <Style x:Key="Glass" TargetType="Border">
             <Setter Property="Background" Value="#D9091222"/>
@@ -310,27 +370,6 @@
                                 <TextBlock Text="Modrinth &amp; CurseForge" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
-                        <StackPanel x:Name="SourcePanel" Margin="16,0,0,8">
-                            <RadioButton x:Name="SrcModrinth" Style="{StaticResource SubNav}" GroupName="src"
-                                         IsChecked="True" Checked="Source_Checked">
-                                <StackPanel Orientation="Horizontal">
-                                    <Grid Width="18" Height="18">
-                                        <Ellipse Width="8" Height="8" Fill="#1BD96A"/>
-                                        <Image x:Name="ModrinthLogo" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                    </Grid>
-                                    <TextBlock Text="Modrinth" Margin="9,0,0,0" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </RadioButton>
-                            <RadioButton x:Name="SrcCurseForge" Style="{StaticResource SubNav}" GroupName="src" Checked="Source_Checked">
-                                <StackPanel Orientation="Horizontal">
-                                    <Grid Width="18" Height="18">
-                                        <Ellipse Width="8" Height="8" Fill="#F16436"/>
-                                        <Image x:Name="CurseForgeLogo" RenderOptions.BitmapScalingMode="HighQuality"/>
-                                    </Grid>
-                                    <TextBlock Text="CurseForge" Margin="9,0,0,0" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </RadioButton>
-                        </StackPanel>
                         <RadioButton x:Name="NavSettings" Style="{StaticResource SideNav}" GroupName="nav" Checked="Nav_Checked">
                             <StackPanel>
                                 <TextBlock Text="Paramètres" FontSize="13" FontWeight="SemiBold"/>
@@ -441,10 +480,26 @@
                                 <Border Background="#263EE6A8" CornerRadius="6" Padding="8,3" Margin="12,4,0,0" VerticalAlignment="Center">
                                     <TextBlock x:Name="ModsVersionText" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
                                 </Border>
-                                <Image x:Name="ModsSourceLogo" Width="18" Height="18" Margin="12,4,0,0" VerticalAlignment="Center"
-                                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                                <TextBlock x:Name="ModsSourceText" Text="via Modrinth" FontSize="12" Foreground="{StaticResource Muted}"
-                                           VerticalAlignment="Center" Margin="6,4,0,0"/>
+                                <!-- Choix de la source -->
+                                <Border Background="#E60D1526" BorderBrush="#22304A" BorderThickness="1" CornerRadius="22"
+                                        Padding="12,5" Margin="18,2,0,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <StackPanel x:Name="ModrinthSide" Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonUp="ModrinthSide_Click">
+                                            <Image x:Name="ModrinthLogo" Width="22" Height="22" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            <TextBlock x:Name="ModrinthLabel" Text="Modrinth" FontSize="13" FontWeight="SemiBold"
+                                                       Margin="7,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <CheckBox x:Name="SourceSwitch" Style="{StaticResource SourceToggle}" Margin="12,0"
+                                                  VerticalAlignment="Center" Checked="Source_Checked" Unchecked="Source_Checked"/>
+                                        <StackPanel x:Name="CurseForgeSide" Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonUp="CurseForgeSide_Click">
+                                            <TextBlock x:Name="CurseForgeLabel" Text="CurseForge" FontSize="13" FontWeight="SemiBold"
+                                                       Margin="0,0,7,0" VerticalAlignment="Center" Foreground="{StaticResource Muted}"/>
+                                            <Image x:Name="CurseForgeLogo" Width="22" Height="22" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <RadioButton x:Name="ModsTabBrowse" Style="{StaticResource Pill}" GroupName="modtab" Content="Découvrir"

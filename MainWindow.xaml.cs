@@ -56,6 +56,7 @@ namespace ForpakLauncher
             {
                 LoadLogo(ModrinthLogo, "modrinth.com");
                 LoadLogo(CurseForgeLogo, "www.curseforge.com");
+                CurseForgeLogo.Opacity = 0.45;
                 if (_settings.AnimatedBackground) StartBackground();
                 await InitAsync();
             };
@@ -514,7 +515,6 @@ namespace ForpakLauncher
             AccountButton.IsEnabled = !busy;
             NavMods.IsEnabled = !busy;
             NavSettings.IsEnabled = !busy;
-            SourcePanel.IsEnabled = !busy;
             PlayButton.Content = busy ? "..." : "JOUER";
             if (!busy) { Bar.Visibility = Visibility.Hidden; PercentText.Text = ""; }
         }
@@ -655,12 +655,20 @@ namespace ForpakLauncher
 
         private async void Source_Checked(object sender, RoutedEventArgs e)
         {
-            if (!IsLoaded || NavMods == null) return; // pendant InitializeComponent
-            _modSource = SrcCurseForge.IsChecked == true ? "curseforge" : "modrinth";
+            if (!IsLoaded || ModrinthLabel == null) return; // pendant InitializeComponent
+            bool cf = SourceSwitch.IsChecked == true;
+            _modSource = cf ? "curseforge" : "modrinth";
+            ModrinthLabel.Foreground = (Brush)FindResource(cf ? "Muted" : "Text");
+            CurseForgeLabel.Foreground = (Brush)FindResource(cf ? "Text" : "Muted");
+            ModrinthLogo.Opacity = cf ? 0.45 : 1;
+            CurseForgeLogo.Opacity = cf ? 1 : 0.45;
             _modsLoadedFor = null;
-            if (NavMods.IsChecked != true) NavMods.IsChecked = true; // ouvre la page Mods
-            else await OpenModsPageAsync();
+            ShowBrowse();
+            await OpenModsPageAsync();
         }
+
+        private void ModrinthSide_Click(object sender, MouseButtonEventArgs e) => SourceSwitch.IsChecked = false;
+        private void CurseForgeSide_Click(object sender, MouseButtonEventArgs e) => SourceSwitch.IsChecked = true;
 
         private async Task OpenModsPageAsync()
         {
@@ -668,8 +676,6 @@ namespace ForpakLauncher
             if (FabricSwitch.IsChecked != true) FabricSwitch.IsChecked = true; // les mods ont besoin de Fabric
             await BuildCategoryChipsAsync();
             ModsVersionText.Text = "Fabric " + ModsMc;
-            ModsSourceText.Text = IsCf ? "via CurseForge" : "via Modrinth";
-            ModsSourceLogo.Source = (IsCf ? CurseForgeLogo : ModrinthLogo).Source;
             ShowBrowse();
             RefreshInstalled();
             if (_modsLoadedFor != ModsMc + _modSource) { _modPage = 0; await LoadModsAsync(); }
