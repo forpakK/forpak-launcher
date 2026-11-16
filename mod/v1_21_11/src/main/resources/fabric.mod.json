@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "forpakclient",
+  "version": "${version}",
+  "name": "Forpak Client",
+  "description": "Modules PvP du Forpak Launcher : HUD, keystrokes, zoom, crystal optimizer.",
+  "authors": ["forpak"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["fr.forpak.client.ForpakClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "1.21.11",
+    "java": ">=21"
+  }
+}

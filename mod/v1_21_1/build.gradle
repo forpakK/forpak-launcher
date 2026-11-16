@@ -1,0 +1,44 @@
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version '1.17-SNAPSHOT'
+}
+
+def mcVersion = '1.21.1'
+version = System.getenv('MOD_VERSION') ?: '1.0.0'
+group = 'fr.forpak'
+
+base {
+    archivesName = "forpakclient-${mcVersion}"
+}
+
+repositories { }
+
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVersion}"
+    mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.19.5"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.18+1.21.1"
+}
+
+// Le code commun aux deux versions
+sourceSets {
+    main {
+        java { srcDir '../common/java' }
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+    it.options.encoding = 'UTF-8'
+}
