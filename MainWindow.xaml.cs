@@ -54,6 +54,8 @@ namespace ForpakLauncher
 
             Loaded += async (_, _) =>
             {
+                LoadLogo(ModrinthLogo, "modrinth.com");
+                LoadLogo(CurseForgeLogo, "www.curseforge.com");
                 if (_settings.AnimatedBackground) StartBackground();
                 await InitAsync();
             };
@@ -122,6 +124,32 @@ namespace ForpakLauncher
                 .ToList();
             VersionCombo.ItemsSource = list;
             VersionCombo.SelectedItem = list.FirstOrDefault(v => v.Id == previous) ?? list.FirstOrDefault();
+        }
+
+        // ------------------------------------------------------------- logos Modrinth / CurseForge
+
+        /// <summary>Charge l'icône officielle du site (favicon). Si ça rate, le point de couleur reste visible.</summary>
+        private static void LoadLogo(Image target, string domain)
+        {
+            try
+            {
+                var img = new BitmapImage();
+                img.BeginInit();
+                img.UriSource = new Uri($"https://{domain}/favicon.ico");
+                img.DecodePixelWidth = 32;
+                img.CacheOption = BitmapCacheOption.OnLoad;
+                img.EndInit();
+                img.DownloadFailed += (_, _) => LoadLogoFallback(target, domain);
+                img.DecodeFailed += (_, _) => LoadLogoFallback(target, domain);
+                target.Source = img;
+            }
+            catch { LoadLogoFallback(target, domain); }
+        }
+
+        private static void LoadLogoFallback(Image target, string domain)
+        {
+            try { target.Source = new BitmapImage(new Uri($"https://www.google.com/s2/favicons?domain={domain}&sz=64")); }
+            catch { target.Source = null; }
         }
 
         // ------------------------------------------------------------- fond animé
@@ -641,6 +669,7 @@ namespace ForpakLauncher
             await BuildCategoryChipsAsync();
             ModsVersionText.Text = "Fabric " + ModsMc;
             ModsSourceText.Text = IsCf ? "via CurseForge" : "via Modrinth";
+            ModsSourceLogo.Source = (IsCf ? CurseForgeLogo : ModrinthLogo).Source;
             ShowBrowse();
             RefreshInstalled();
             if (_modsLoadedFor != ModsMc + _modSource) { _modPage = 0; await LoadModsAsync(); }

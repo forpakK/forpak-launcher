@@ -53,10 +53,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="b" Background="Transparent" CornerRadius="8" Padding="10,6">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Width="8" Height="8" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" VerticalAlignment="Center"/>
-                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <ContentPresenter VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -314,10 +311,25 @@
                             </StackPanel>
                         </RadioButton>
                         <StackPanel x:Name="SourcePanel" Margin="16,0,0,8">
-                            <RadioButton x:Name="SrcModrinth" Style="{StaticResource SubNav}" GroupName="src" Content="Modrinth"
-                                         Tag="#1BD96A" IsChecked="True" Checked="Source_Checked"/>
-                            <RadioButton x:Name="SrcCurseForge" Style="{StaticResource SubNav}" GroupName="src" Content="CurseForge"
-                                         Tag="#F16436" Checked="Source_Checked"/>
+                            <RadioButton x:Name="SrcModrinth" Style="{StaticResource SubNav}" GroupName="src"
+                                         IsChecked="True" Checked="Source_Checked">
+                                <StackPanel Orientation="Horizontal">
+                                    <Grid Width="18" Height="18">
+                                        <Ellipse Width="8" Height="8" Fill="#1BD96A"/>
+                                        <Image x:Name="ModrinthLogo" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    </Grid>
+                                    <TextBlock Text="Modrinth" Margin="9,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="SrcCurseForge" Style="{StaticResource SubNav}" GroupName="src" Checked="Source_Checked">
+                                <StackPanel Orientation="Horizontal">
+                                    <Grid Width="18" Height="18">
+                                        <Ellipse Width="8" Height="8" Fill="#F16436"/>
+                                        <Image x:Name="CurseForgeLogo" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    </Grid>
+                                    <TextBlock Text="CurseForge" Margin="9,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
                         <RadioButton x:Name="NavSettings" Style="{StaticResource SideNav}" GroupName="nav" Checked="Nav_Checked">
                             <StackPanel>
@@ -429,8 +441,10 @@
                                 <Border Background="#263EE6A8" CornerRadius="6" Padding="8,3" Margin="12,4,0,0" VerticalAlignment="Center">
                                     <TextBlock x:Name="ModsVersionText" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
                                 </Border>
+                                <Image x:Name="ModsSourceLogo" Width="18" Height="18" Margin="12,4,0,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock x:Name="ModsSourceText" Text="via Modrinth" FontSize="12" Foreground="{StaticResource Muted}"
-                                           VerticalAlignment="Center" Margin="10,4,0,0"/>
+                                           VerticalAlignment="Center" Margin="6,4,0,0"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <RadioButton x:Name="ModsTabBrowse" Style="{StaticResource Pill}" GroupName="modtab" Content="Découvrir"
