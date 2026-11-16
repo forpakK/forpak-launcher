@@ -27,3 +27,4 @@ jobs:
           done
           echo "--- sans cle :"
           curl -s -o /dev/null -w "%{http_code}  /v1/categories sans cle\n" "https://api.curseforge.com/v1/categories?gameId=432&classId=6"
+# essai 2
