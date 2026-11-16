@@ -154,6 +154,45 @@ namespace ForpakLauncher.Core
 
         public static bool SupportsForpakClient(string mc) => ForpakClientVersions.Contains(mc);
 
+        // ----------------------------------------------------------- Pack FPS
+
+        /// <summary>Mods d'optimisation (slugs Modrinth). Ceux qui n'existent pas pour la version sont sautés.</summary>
+        public static readonly (string Slug, string Name)[] PerformanceMods =
+        {
+            ("sodium", "Sodium"),
+            ("lithium", "Lithium"),
+            ("ferrite-core", "FerriteCore"),
+            ("immediatelyfast", "ImmediatelyFast"),
+            ("entityculling", "EntityCulling"),
+            ("modernfix", "ModernFix"),
+            ("dynamic-fps", "Dynamic FPS"),
+        };
+
+        public async Task InstallPerformancePackAsync(string mc, Action<string> status)
+        {
+            foreach (var (slug, name) in PerformanceMods)
+            {
+                status?.Invoke("Pack FPS : " + name + "...");
+                try { await InstallAsync(slug, mc); }
+                catch (Exception ex) { Log.Write($"Pack FPS : {name} ignoré ({ex.Message})"); }
+            }
+        }
+
+        /// <summary>Retire les mods du pack FPS (quand on le désactive).</summary>
+        public void RemovePerformancePack(string mc)
+        {
+            var idx = LoadIndex(mc);
+            bool changed = false;
+            foreach (var (slug, _) in PerformanceMods)
+            {
+                if (!idx.TryGetValue(slug, out var file)) continue;
+                try { File.Delete(Path.Combine(ModsDir(mc), file)); } catch { }
+                idx.Remove(slug);
+                changed = true;
+            }
+            if (changed) SaveIndex(mc, idx);
+        }
+
         /// <summary>Installe / met à jour Forpak Client + Fabric API depuis GitHub.</summary>
         public async Task EnsureForpakClientAsync(string mc, string remoteVersion, Action<string> status)
         {

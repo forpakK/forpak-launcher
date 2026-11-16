@@ -31,6 +31,18 @@ namespace ForpakLauncher.Core
             catch { return null; }
         }
 
+        /// <summary>Notes de la dernière release (texte), ou null.</summary>
+        public async Task<string> GetReleaseNotesAsync()
+        {
+            try
+            {
+                var json = System.Text.Json.Nodes.JsonNode.Parse(
+                    await _http.GetStringAsync($"https://api.github.com/repos/{Repo}/releases/tags/latest"));
+                return (string)json?["body"];
+            }
+            catch { return null; }
+        }
+
         public static bool IsNewer(string remote) =>
             remote != null && Version.TryParse(remote, out var r) &&
             r > new Version(CurrentVersion.Major, CurrentVersion.Minor, Math.Max(0, CurrentVersion.Build));

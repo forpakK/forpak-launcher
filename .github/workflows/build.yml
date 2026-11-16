@@ -79,6 +79,15 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: NOTES.md
+          sparse-checkout-cone-mode: false
+          path: src
+
+      - name: Notes de version
+        run: cp src/NOTES.md NOTES.md
+
       - name: Fichier de version
         run: echo "${{ env.APP_VERSION }}" > dist/version.txt
 
@@ -88,7 +97,7 @@ jobs:
           tag_name: latest
           target_commitish: ${{ github.sha }}
           name: Forpak Launcher v${{ env.APP_VERSION }}
-          body: "Version ${{ env.APP_VERSION }} — télécharge ForpakLauncher.exe. Les mods se mettent à jour tout seuls depuis le launcher."
+          body_path: NOTES.md
           files: |
             dist/ForpakLauncher.exe
             dist/forpakclient-1.21.1.jar

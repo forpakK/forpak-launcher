@@ -27,8 +27,9 @@ namespace ForpakLauncher.Core
         public string JavaPath { get; set; } = "";      // vide = Java téléchargé automatiquement
         public string ExtraJvmArgs { get; set; } = "";
         public bool ShowSnapshots { get; set; } = false;
-        public bool UseFabric { get; set; } = false;
+        public bool UseFabric { get; set; } = true;
         public bool ForpakClient { get; set; } = true;   // modules PvP (1.21.1 / 1.21.11)
+        public bool PerformanceMode { get; set; } = true; // pack FPS (Sodium, Lithium...)
         public bool CloseOnLaunch { get; set; } = false;
         public string LastVersion { get; set; } = "";
 

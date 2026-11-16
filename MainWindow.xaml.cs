@@ -1,8 +1,9 @@
 using System.Diagnostics;
-using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using ForpakLauncher.Core;
 using Microsoft.Win32;
@@ -22,25 +23,30 @@ namespace ForpakLauncher
         private CancellationTokenSource _loginCts;
         private string _pendingCode;
         private bool _busy;
+        private bool _loading = true;
 
         public MainWindow()
         {
             InitializeComponent();
 
             _http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("ForpakLauncher/1.0");
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("ForpakLauncher/" + Updater.CurrentVersionText);
             _settings = Settings.Load();
             _game = new GameManager(_http)
             {
                 Status = msg => Dispatcher.Invoke(() => StatusText.Text = msg),
                 Progress = v => Dispatcher.Invoke(() => SetProgress(v))
             };
-
             _mods = new ModManager(_http);
             _updater = new Updater(_http);
             VersionLabel.Text = "v" + Updater.CurrentVersionText;
 
             FabricSwitch.IsChecked = _settings.UseFabric;
+            PerfSwitch.IsChecked = _settings.PerformanceMode;
+            ClientSwitch.IsChecked = _settings.ForpakClient;
+            _loading = false;
+            UpdateSubtitle();
+
             Loaded += async (_, _) => await InitAsync();
         }
 
@@ -48,7 +54,6 @@ namespace ForpakLauncher
 
         private async Task InitAsync()
         {
-            // Versions
             try
             {
                 _allVersions = await _game.GetVersionsAsync();
@@ -60,17 +65,23 @@ namespace ForpakLauncher
                 StatusText.Text = "Impossible de charger les versions (pas d'internet ?) : " + ex.Message;
             }
 
-            // Mises à jour (launcher + Forpak Client)
+            // Mises à jour + nouveautés
             _remoteVersion = await _updater.GetRemoteVersionAsync();
             if (Updater.IsNewer(_remoteVersion))
             {
                 UpdateButton.Content = "Mise à jour v" + _remoteVersion;
                 UpdateButton.Visibility = Visibility.Visible;
             }
+            var notes = await _updater.GetReleaseNotesAsync();
+            if (!string.IsNullOrWhiteSpace(notes))
+            {
+                NewsTitle.Text = "Version " + (_remoteVersion ?? Updater.CurrentVersionText);
+                NewsText.Text = notes.Trim();
+            }
 
             // Compte enregistré
             var refresh = _settings.GetRefreshToken();
-            if (refresh != null && HasClientId())
+            if (refresh != null)
             {
                 SetAccountUi(_settings.AccountName, _settings.AccountUuid, "Reconnexion...");
                 try
@@ -90,6 +101,7 @@ namespace ForpakLauncher
         private void RefreshVersionList()
         {
             var previous = (VersionCombo.SelectedItem as McVersion)?.Id ?? _settings.LastVersion;
+            if (string.IsNullOrEmpty(previous)) previous = "1.21.11";
             var list = _allVersions
                 .Where(v => v.Type == "release" || (_settings.ShowSnapshots && v.Type == "snapshot"))
                 .ToList();
@@ -97,13 +109,83 @@ namespace ForpakLauncher
             VersionCombo.SelectedItem = list.FirstOrDefault(v => v.Id == previous) ?? list.FirstOrDefault();
         }
 
-        // ------------------------------------------------------------- compte
+        // ------------------------------------------------------------- navigation
 
-        private bool HasClientId()
+        private void Nav_Checked(object sender, RoutedEventArgs e)
         {
-            // Vide = ID du launcher officiel, donc toujours utilisable
-            return true;
+            if (HomePage == null) return; // pendant InitializeComponent
+            HomePage.Visibility = NavHome.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            ModsPage.Visibility = NavMods.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            SettingsPage.Visibility = NavSettings.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
+            FrameworkElement shown = NavMods.IsChecked == true ? ModsPage
+                : NavSettings.IsChecked == true ? SettingsPage : HomePage;
+            Animate(shown);
+
+            if (NavMods.IsChecked == true) _ = OpenModsPageAsync();
+            if (NavSettings.IsChecked == true) LoadSettingsPage();
         }
+
+        private static void Animate(FrameworkElement el)
+        {
+            var tt = new TranslateTransform(0, 10);
+            el.RenderTransform = tt;
+            var dur = TimeSpan.FromMilliseconds(220);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            el.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, dur) { EasingFunction = ease });
+            tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(10, 0, dur) { EasingFunction = ease });
+        }
+
+        private void GoHome() => NavHome.IsChecked = true;
+
+        // ------------------------------------------------------------- interrupteurs de l'accueil
+
+        private void Fabric_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            if (FabricSwitch.IsChecked != true)
+            {
+                // Sans Fabric, pas de mods
+                PerfSwitch.IsChecked = false;
+                ClientSwitch.IsChecked = false;
+            }
+            SaveHomeSwitches();
+        }
+
+        private void Perf_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            if (PerfSwitch.IsChecked == true) FabricSwitch.IsChecked = true;
+            SaveHomeSwitches();
+        }
+
+        private void Client_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            if (ClientSwitch.IsChecked == true) FabricSwitch.IsChecked = true;
+            SaveHomeSwitches();
+        }
+
+        private void SaveHomeSwitches()
+        {
+            _settings.UseFabric = FabricSwitch.IsChecked == true;
+            _settings.PerformanceMode = PerfSwitch.IsChecked == true;
+            _settings.ForpakClient = ClientSwitch.IsChecked == true;
+            _settings.Save();
+            UpdateSubtitle();
+        }
+
+        private void UpdateSubtitle()
+        {
+            if (SubtitleText == null) return;
+            if (FabricSwitch.IsChecked != true) SubtitleText.Text = "Minecraft vanilla, sans mods.";
+            else if (PerfSwitch.IsChecked == true && ClientSwitch.IsChecked == true)
+                SubtitleText.Text = "Pack FPS + modules PvP activés. Shift droit en jeu pour le menu.";
+            else if (PerfSwitch.IsChecked == true) SubtitleText.Text = "Pack FPS activé : Sodium, Lithium et compagnie.";
+            else SubtitleText.Text = "Fabric activé : ajoute tes mods dans l'onglet Mods.";
+        }
+
+        // ------------------------------------------------------------- compte
 
         private async void Account_Click(object sender, RoutedEventArgs e)
         {
@@ -131,6 +213,7 @@ namespace ForpakLauncher
                 LoginCode.Text = code.UserCode;
                 LoginUrl.Text = code.VerificationUri;
                 LoginOverlay.Visibility = Visibility.Visible;
+                Animate(LoginOverlay);
                 try { Clipboard.SetText(code.UserCode); } catch { }
                 OpenUrl(code.VerificationUri);
 
@@ -161,12 +244,8 @@ namespace ForpakLauncher
 
         private void UpdateAccountUi()
         {
-            if (_account != null) SetAccountUi(_account.Name, _account.Uuid, "Compte Microsoft · se déconnecter");
-            else
-            {
-                SetAccountUi(null, null, "Compte Microsoft");
-                AccountName.Text = "Se connecter";
-            }
+            if (_account != null) SetAccountUi(_account.Name, _account.Uuid, "Connecté");
+            else SetAccountUi(null, null, "Compte Microsoft");
         }
 
         private void SetAccountUi(string name, string uuid, string hint)
@@ -177,10 +256,7 @@ namespace ForpakLauncher
             AvatarImage.Source = null;
             if (!string.IsNullOrEmpty(uuid))
             {
-                try
-                {
-                    AvatarImage.Source = new BitmapImage(new Uri($"https://mc-heads.net/avatar/{uuid}/68"));
-                }
+                try { AvatarImage.Source = new BitmapImage(new Uri($"https://mc-heads.net/avatar/{uuid}/64")); }
                 catch { }
             }
         }
@@ -202,13 +278,12 @@ namespace ForpakLauncher
 
             SetBusy(true);
             _settings.LastVersion = version.Id;
-            _settings.UseFabric = FabricSwitch.IsChecked == true;
-            _settings.Save();
+            SaveHomeSwitches();
             var fabric = _settings.UseFabric;
 
             try
             {
-                // Rafraîchit le token si besoin (il expire au bout de 24h)
+                // Rafraîchit le token (il expire au bout de 24h)
                 var refresh = _account.RefreshToken;
                 if (refresh != null)
                 {
@@ -218,25 +293,33 @@ namespace ForpakLauncher
 
                 var ct = CancellationToken.None;
                 var launchId = await Task.Run(() => _game.InstallAsync(version, fabric, ct));
+                Action<string> status = msg => Dispatcher.Invoke(() => StatusText.Text = msg);
 
-                // Forpak Client (modules) : installé / mis à jour automatiquement
-                if (fabric && ModManager.SupportsForpakClient(version.Id))
+                if (fabric)
                 {
-                    if (_settings.ForpakClient)
+                    SetProgress(-1);
+                    // Pack FPS
+                    if (_settings.PerformanceMode)
+                        await Task.Run(() => _mods.InstallPerformancePackAsync(version.Id, status));
+                    else
+                        _mods.RemovePerformancePack(version.Id);
+
+                    // Modules PvP (Forpak Client)
+                    if (ModManager.SupportsForpakClient(version.Id))
                     {
-                        try
+                        if (_settings.ForpakClient)
                         {
-                            await Task.Run(() => _mods.EnsureForpakClientAsync(version.Id, _remoteVersion,
-                                msg => Dispatcher.Invoke(() => StatusText.Text = msg)));
+                            try { await Task.Run(() => _mods.EnsureForpakClientAsync(version.Id, _remoteVersion, status)); }
+                            catch (Exception ex)
+                            {
+                                Log.Write("Forpak Client : " + ex.Message);
+                                StatusText.Text = "Modules indisponibles, lancement sans eux.";
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            Log.Write("Forpak Client : " + ex.Message);
-                            StatusText.Text = "Forpak Client indisponible, lancement sans les modules.";
-                        }
+                        else ModManager.RemoveForpakClient(version.Id);
                     }
-                    else ModManager.RemoveForpakClient(version.Id);
                 }
+
                 var java = string.IsNullOrWhiteSpace(_settings.JavaPath)
                     ? await Task.Run(() => _game.EnsureJavaAsync(launchId, ct))
                     : _settings.JavaPath;
@@ -248,7 +331,7 @@ namespace ForpakLauncher
                 {
                     StatusText.Text = proc.ExitCode == 0 ? "Partie terminée." :
                         $"Le jeu s'est arrêté (code {proc.ExitCode}). Détails : {Paths.LogFile}";
-                    if (!IsVisible) Close();
+                    if (!IsVisible) { Show(); Activate(); }
                 });
 
                 await Task.Delay(2500);
@@ -273,8 +356,11 @@ namespace ForpakLauncher
             PlayButton.IsEnabled = !busy;
             VersionCombo.IsEnabled = !busy;
             FabricSwitch.IsEnabled = !busy;
+            PerfSwitch.IsEnabled = !busy;
+            ClientSwitch.IsEnabled = !busy;
             AccountButton.IsEnabled = !busy;
-            ModsButton.IsEnabled = !busy;
+            NavMods.IsEnabled = !busy;
+            NavSettings.IsEnabled = !busy;
             PlayButton.Content = busy ? "..." : "JOUER";
             if (!busy) { Bar.Visibility = Visibility.Hidden; PercentText.Text = ""; }
         }
@@ -288,17 +374,9 @@ namespace ForpakLauncher
             PercentText.Text = $"{v * 100:0}%";
         }
 
-        private void Fabric_Changed(object sender, RoutedEventArgs e)
-        {
-            if (SubtitleText == null) return;
-            SubtitleText.Text = FabricSwitch.IsChecked == true
-                ? "Fabric activé : ajoute des mods avec le bouton « Mods »."
-                : "Choisis ta version et lance le jeu.";
-        }
-
         // ------------------------------------------------------------- paramètres
 
-        private void OpenSettings_Click(object sender, RoutedEventArgs e)
+        private void LoadSettingsPage()
         {
             RamSlider.Value = _settings.RamMb;
             RamText.Text = $"{_settings.RamMb / 1024.0:0.#} Go";
@@ -307,7 +385,8 @@ namespace ForpakLauncher
             SnapshotSwitch.IsChecked = _settings.ShowSnapshots;
             CloseSwitch.IsChecked = _settings.CloseOnLaunch;
             ForpakClientSwitch.IsChecked = _settings.ForpakClient;
-            SettingsOverlay.Visibility = Visibility.Visible;
+            PerfSettingSwitch.IsChecked = _settings.PerformanceMode;
+            SavedText.Visibility = Visibility.Collapsed;
         }
 
         private void Ram_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -328,13 +407,17 @@ namespace ForpakLauncher
             _settings.ExtraJvmArgs = JvmBox.Text.Trim();
             _settings.ShowSnapshots = SnapshotSwitch.IsChecked == true;
             _settings.CloseOnLaunch = CloseSwitch.IsChecked == true;
-            _settings.ForpakClient = ForpakClientSwitch.IsChecked == true;
             _settings.Save();
-            RefreshVersionList();
-            SettingsOverlay.Visibility = Visibility.Collapsed;
-        }
 
-        private void CloseSettings_Click(object sender, RoutedEventArgs e) => SettingsOverlay.Visibility = Visibility.Collapsed;
+            // Les interrupteurs de l'accueil suivent
+            ClientSwitch.IsChecked = ForpakClientSwitch.IsChecked == true;
+            PerfSwitch.IsChecked = PerfSettingSwitch.IsChecked == true;
+            SaveHomeSwitches();
+
+            RefreshVersionList();
+            SavedText.Visibility = Visibility.Visible;
+            Animate(SavedText);
+        }
 
         private void OpenFolder_Click(object sender, RoutedEventArgs e)
         {
@@ -354,18 +437,15 @@ namespace ForpakLauncher
 
         private string ModsMc => (VersionCombo.SelectedItem as McVersion)?.Id;
 
-        private async void OpenMods_Overlay_Click(object sender, RoutedEventArgs e)
+        private async Task OpenModsPageAsync()
         {
             if (ModsMc == null) return;
             if (FabricSwitch.IsChecked != true) FabricSwitch.IsChecked = true; // les mods ont besoin de Fabric
             ModsVersionText.Text = "Fabric " + ModsMc;
-            ModsOverlay.Visibility = Visibility.Visible;
             RefreshInstalled();
             if (ModResults.Items.Count == 0 || (string)ModResults.Tag != ModsMc)
                 await SearchModsAsync(ModSearchBox.Text);
         }
-
-        private void CloseMods_Click(object sender, RoutedEventArgs e) => ModsOverlay.Visibility = Visibility.Collapsed;
 
         private async void ModSearch_Click(object sender, RoutedEventArgs e) => await SearchModsAsync(ModSearchBox.Text);
 
@@ -435,6 +515,7 @@ namespace ForpakLauncher
                 "Mise à jour", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (r != MessageBoxResult.Yes) return;
 
+            GoHome();
             SetBusy(true);
             UpdateButton.IsEnabled = false;
             StatusText.Text = "Téléchargement de la mise à jour...";
@@ -453,6 +534,11 @@ namespace ForpakLauncher
         }
 
         // ------------------------------------------------------------- fenêtre
+
+        private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            WindowClip.Rect = new Rect(0, 0, RootBorder.ActualWidth, RootBorder.ActualHeight);
+        }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
         {
