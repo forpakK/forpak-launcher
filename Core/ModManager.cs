@@ -357,16 +357,18 @@ namespace ForpakLauncher.Core
         }
 
         /// <summary>Installe / met à jour Velox Client (mod) + Fabric API depuis GitHub.</summary>
-        public async Task EnsureForpakClientAsync(string mc, string remoteVersion, Action<string> status)
+        public async Task EnsureForpakClientAsync(string mc, string remoteVersion, Action<string> status, string modsDir = null)
         {
             if (!SupportsForpakClient(mc)) return;
-            var dir = ModsDir(mc);
+            var dir = modsDir ?? ModsDir(mc);
             Directory.CreateDirectory(dir);
 
-            status?.Invoke("Vérification de Fabric API...");
-            await InstallAsync(FabricApiId, mc);
-
-            RemoveLegacy(mc);
+            if (modsDir == null)   // dans un modpack, Fabric API est déjà fourni
+            {
+                status?.Invoke("Vérification de Fabric API...");
+                await InstallAsync(FabricApiId, mc);
+                RemoveLegacy(mc);
+            }
             var jar = Path.Combine(dir, $"veloxclient-{mc}.jar");
             var verFile = Path.Combine(dir, ".veloxclient-version");
             var local = File.Exists(verFile) ? File.ReadAllText(verFile).Trim() : "";

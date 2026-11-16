@@ -1,1 +1,1 @@
-Tu restes connecté. En jeu : nouveau menu principal Velox (aurores et neige), Shift droit ouvre le menu Velox avec le logo. Clic droit sur un module = options (taille, fond, couleur). Nouveaux modules : Anchor Optimizer et Indicateur KB (sprint hit / W-tap).
+Nouveau : modpacks Modrinth (et import .mrpack), serveurs favoris avec joueurs en ligne, galerie de captures. En jeu : cape Velox, viseur perso, profils de HUD, stats de session et aimantage du HUD.

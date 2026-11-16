@@ -18,6 +18,8 @@ namespace ForpakLauncher
         private readonly ModManager _mods;
         private readonly Updater _updater;
         private readonly CurseForge _cf;
+        private readonly Modpacks _packs;
+        private string _joinServer;
         private string _remoteVersion;
         private List<McVersion> _allVersions = new();
         private McAccount _account;
@@ -44,6 +46,7 @@ namespace ForpakLauncher
             _mods = new ModManager(_http);
             _updater = new Updater(_http);
             _cf = new CurseForge(_http) { ApiKey = _settings.CurseForgeApiKey };
+            _packs = new Modpacks(_http);
             VersionLabel.Text = "v" + Updater.CurrentVersionText;
 
             FabricSwitch.IsChecked = _settings.UseFabric;
@@ -108,11 +111,25 @@ namespace ForpakLauncher
         {
             var previous = (VersionCombo.SelectedItem as McVersion)?.Id ?? _settings.LastVersion;
             if (string.IsNullOrEmpty(previous)) previous = "1.21.11";
-            var list = _allVersions
-                .Where(v => v.Type == "release" || (_settings.ShowSnapshots && v.Type == "snapshot"))
-                .ToList();
+            var prevPack = (VersionCombo.SelectedItem as McVersion)?.PackId ?? _settings.LastPack;
+            var list = new List<McVersion>();
+            foreach (var pack in _settings.Modpacks)
+            {
+                var basev = _allVersions.FirstOrDefault(v => v.Id == pack.McVersion);
+                if (basev == null) continue;
+                list.Add(new McVersion
+                {
+                    Id = basev.Id, Type = "modpack", Url = basev.Url, Sha1 = basev.Sha1,
+                    PackId = pack.Id, PackName = pack.Name
+                });
+            }
+            list.AddRange(_allVersions
+                .Where(v => v.Type == "release" || (_settings.ShowSnapshots && v.Type == "snapshot")));
             VersionCombo.ItemsSource = list;
-            VersionCombo.SelectedItem = list.FirstOrDefault(v => v.Id == previous) ?? list.FirstOrDefault();
+            VersionCombo.SelectedItem =
+                (prevPack != null ? list.FirstOrDefault(v => v.PackId == prevPack) : null)
+                ?? list.FirstOrDefault(v => v.PackId == null && v.Id == previous)
+                ?? list.FirstOrDefault(v => v.PackId == null);
         }
 
         // ------------------------------------------------------------- logos Modrinth / CurseForge
@@ -251,16 +268,25 @@ namespace ForpakLauncher
 
         private void Nav_Checked(object sender, RoutedEventArgs e)
         {
-            if (HomePage == null) return; // pendant InitializeComponent
-            HomePage.Visibility = NavHome.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-            ModsPage.Visibility = NavMods.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-            SettingsPage.Visibility = NavSettings.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-
-            FrameworkElement shown = NavMods.IsChecked == true ? ModsPage
-                : NavSettings.IsChecked == true ? SettingsPage : HomePage;
+            if (HomePage == null || SettingsPage == null) return; // pendant InitializeComponent
+            var pages = new (RadioButton nav, FrameworkElement page)[]
+            {
+                (NavHome, HomePage), (NavMods, ModsPage), (NavPacks, PacksPage),
+                (NavServers, ServersPage), (NavShots, ShotsPage), (NavSettings, SettingsPage)
+            };
+            FrameworkElement shown = HomePage;
+            foreach (var (nav, page) in pages)
+            {
+                bool on = nav.IsChecked == true;
+                page.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                if (on) shown = page;
+            }
             Animate(shown);
 
             if (NavMods.IsChecked == true) _ = OpenModsPageAsync();
+            if (NavPacks.IsChecked == true) _ = OpenPacksPageAsync();
+            if (NavServers.IsChecked == true) _ = RefreshServersAsync();
+            if (NavShots.IsChecked == true) LoadShots();
             if (NavSettings.IsChecked == true) LoadSettingsPage();
         }
 
@@ -444,8 +470,12 @@ namespace ForpakLauncher
 
             SetBusy(true);
             _settings.LastVersion = version.Id;
+            _settings.LastPack = version.PackId;
             SaveHomeSwitches();
-            var fabric = _settings.UseFabric;
+            var pack = version.PackId == null ? null : _settings.Modpacks.FirstOrDefault(m => m.Id == version.PackId);
+            var fabric = pack != null || _settings.UseFabric;
+            var joinServer = _joinServer;
+            _joinServer = null;
 
             try
             {
@@ -458,10 +488,23 @@ namespace ForpakLauncher
                 }
 
                 var ct = CancellationToken.None;
-                var launchId = await Task.Run(() => _game.InstallAsync(version, fabric, ct));
+                var launchId = await Task.Run(() => _game.InstallAsync(version, fabric, ct, pack?.LoaderVersion));
                 Action<string> status = msg => Dispatcher.Invoke(() => StatusText.Text = msg);
 
-                if (fabric)
+                if (pack != null)
+                {
+                    // Modpack : on ne touche pas à ses mods, on ajoute juste les modules Velox si possible
+                    if (_settings.ForpakClient && ModManager.SupportsForpakClient(version.Id))
+                    {
+                        try
+                        {
+                            var packMods = Path.Combine(pack.Dir, "mods");
+                            await Task.Run(() => _mods.EnsureForpakClientAsync(version.Id, _remoteVersion, status, packMods));
+                        }
+                        catch (Exception ex) { Log.Write("Velox dans le modpack : " + ex.Message); }
+                    }
+                }
+                else if (fabric)
                 {
                     SetProgress(-1);
                     // Pack FPS
@@ -492,7 +535,8 @@ namespace ForpakLauncher
 
                 StatusText.Text = "Lancement de Minecraft " + launchId + "...";
                 SetProgress(-1);
-                var proc = _game.Launch(launchId, _account, _settings, java, ModManager.GameDir(version.Id, fabric));
+                var gameDir = pack != null ? pack.Dir : ModManager.GameDir(version.Id, fabric);
+                var proc = _game.Launch(launchId, _account, _settings, java, gameDir, joinServer);
                 _gameRunning = true;
                 StopBackground(); // le launcher ne consomme rien pendant que tu joues
                 proc.Exited += (_, _) => Dispatcher.Invoke(() =>
@@ -1009,6 +1053,337 @@ namespace ForpakLauncher
 
         private void CfKeyWeb_Click(object sender, RoutedEventArgs e) => OpenUrl("https://console.curseforge.com/");
 
+        // ------------------------------------------------------------- modpacks
+
+        private int _packPage;
+        private string _packQuery = "";
+        private bool _packsLoaded;
+        private bool _packBusy;
+
+        private async Task OpenPacksPageAsync()
+        {
+            RefreshInstalledPacks();
+            if (!_packsLoaded) await LoadPacksAsync();
+        }
+
+        private async Task LoadPacksAsync()
+        {
+            PacksEmptyText.Text = "Chargement...";
+            PackResults.ItemsSource = null;
+            PackPrevButton.IsEnabled = PackNextButton.IsEnabled = false;
+            try
+            {
+                var (hits, total) = await _packs.SearchAsync(_packQuery, _packPage * ModManager.PageSize);
+                foreach (var h in hits)
+                    if (_settings.Modpacks.Any(m => m.Id == SafePackId(h))) h.InstallLabel = "Installé ✓";
+                PackResults.ItemsSource = hits;
+                PackScroll.ScrollToTop();
+                _packsLoaded = true;
+                PacksEmptyText.Text = hits.Count == 0 ? "Aucun modpack trouvé." : "";
+                int pages = Math.Max(1, (int)Math.Ceiling(total / (double)ModManager.PageSize));
+                PackPageText.Text = $"Page {_packPage + 1} sur {pages}";
+                PackPrevButton.IsEnabled = _packPage > 0;
+                PackNextButton.IsEnabled = _packPage + 1 < pages;
+            }
+            catch (Exception ex) { PacksEmptyText.Text = "Modrinth ne répond pas : " + ex.Message; }
+        }
+
+        private static string SafePackId(ModHit h) => (h.Slug ?? h.ProjectId ?? "").ToLowerInvariant();
+
+        private async void PackSearch_Click(object sender, RoutedEventArgs e) => await NewPackSearchAsync();
+
+        private async void PackSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) await NewPackSearchAsync();
+        }
+
+        private async Task NewPackSearchAsync()
+        {
+            _packQuery = PackSearchBox.Text.Trim();
+            _packPage = 0;
+            PacksTabBrowse.IsChecked = true;
+            await LoadPacksAsync();
+        }
+
+        private async void PackPrev_Click(object sender, RoutedEventArgs e)
+        {
+            if (_packPage == 0) return;
+            _packPage--;
+            await LoadPacksAsync();
+        }
+
+        private async void PackNext_Click(object sender, RoutedEventArgs e)
+        {
+            _packPage++;
+            await LoadPacksAsync();
+        }
+
+        private void PacksTab_Checked(object sender, RoutedEventArgs e)
+        {
+            if (InstalledPacksView == null) return;
+            bool installed = PacksTabInstalled.IsChecked == true;
+            InstalledPacksView.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+            PackScroll.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            PackPager.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            PackSearchRow.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            if (installed) RefreshInstalledPacks();
+            else PacksEmptyText.Text = PackResults.Items.Count == 0 ? PacksEmptyText.Text : "";
+            Animate(installed ? InstalledPacksView : PackScroll);
+        }
+
+        private void RefreshInstalledPacks()
+        {
+            InstalledPacks.ItemsSource = null;
+            InstalledPacks.ItemsSource = _settings.Modpacks.ToList();
+            PacksTabInstalled.Content = $"Installés ({_settings.Modpacks.Count})";
+            if (PacksTabInstalled.IsChecked == true)
+                PacksEmptyText.Text = _settings.Modpacks.Count == 0
+                    ? "Aucun modpack installé. Trouve-en un dans Découvrir, ou importe un fichier .mrpack." : "";
+        }
+
+        private void PackCard_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is ModHit h && h.Slug != null)
+                OpenUrl("https://modrinth.com/modpack/" + h.Slug);
+        }
+
+        private async void InstallPack_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not ModHit hit || hit.InstallLabel != "Installer le pack") return;
+            if (_packBusy) { MessageBox.Show("Un modpack est déjà en cours d'installation."); return; }
+            await InstallPackAsync(b, async (status, progress) => await _packs.InstallFromModrinthAsync(hit, status, progress), hit);
+        }
+
+        private async void ImportPack_Click(object sender, RoutedEventArgs e)
+        {
+            if (_packBusy) { MessageBox.Show("Un modpack est déjà en cours d'installation."); return; }
+            var dlg = new OpenFileDialog { Filter = "Modpack Modrinth (*.mrpack)|*.mrpack", Title = "Importer un modpack" };
+            if (dlg.ShowDialog() != true) return;
+            var file = dlg.FileName;
+            await InstallPackAsync(null, async (status, progress) =>
+                await _packs.ImportAsync(file, System.IO.Path.GetFileNameWithoutExtension(file), null, status, progress), null);
+        }
+
+        private async Task InstallPackAsync(Button b, Func<Action<string>, IProgress<(int, int)>, Task<ModpackInstance>> work, ModHit hit)
+        {
+            _packBusy = true;
+            if (b != null) { b.IsEnabled = false; b.Content = "..."; }
+            PackProgressRow.Visibility = Visibility.Visible;
+            PackBar.IsIndeterminate = true;
+            Action<string> status = msg => Dispatcher.Invoke(() => PackStatusText.Text = msg);
+            var progress = new Progress<(int done, int total)>(p =>
+            {
+                PackBar.IsIndeterminate = false;
+                PackBar.Value = p.total == 0 ? 1 : (double)p.done / p.total;
+                PackStatusText.Text = $"Téléchargement des fichiers : {p.done} / {p.total}";
+            });
+            try
+            {
+                var pack = await Task.Run(() => work(status, progress));
+                _settings.Modpacks.RemoveAll(m => m.Id == pack.Id);
+                _settings.Modpacks.Add(pack);
+                _settings.Save();
+                if (hit != null) hit.InstallLabel = "Installé ✓";
+                if (b != null) b.Content = "Installé ✓";
+                RefreshVersionList();
+                RefreshInstalledPacks();
+                PackStatusText.Text = $"{pack.Name} est installé ! Choisis-le dans l'accueil (📦) et clique sur JOUER.";
+                PackBar.IsIndeterminate = false;
+                PackBar.Value = 1;
+            }
+            catch (Exception ex)
+            {
+                if (b != null) b.Content = "Installer le pack";
+                PackProgressRow.Visibility = Visibility.Collapsed;
+                Log.Write("Modpack : " + ex);
+                MessageBox.Show(ex.Message, "Modpack", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                _packBusy = false;
+                if (b != null) b.IsEnabled = true;
+            }
+        }
+
+        private void PlayPack_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not ModpackInstance pack) return;
+            var item = (VersionCombo.ItemsSource as IEnumerable<McVersion>)?.FirstOrDefault(v => v.PackId == pack.Id);
+            if (item == null) { MessageBox.Show("Version de Minecraft introuvable pour ce modpack."); return; }
+            VersionCombo.SelectedItem = item;
+            GoHome();
+            Play_Click(sender, e);
+        }
+
+        private void PackFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button b && b.Tag is ModpackInstance pack)
+            {
+                Directory.CreateDirectory(pack.Dir);
+                OpenUrl(pack.Dir);
+            }
+        }
+
+        private void DeletePack_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not ModpackInstance pack) return;
+            var r = MessageBox.Show($"Supprimer le modpack « {pack.Name} » ?\nSes mondes et réglages seront effacés.",
+                "Modpack", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (r != MessageBoxResult.Yes) return;
+            try { if (Directory.Exists(pack.Dir)) Directory.Delete(pack.Dir, true); }
+            catch (Exception ex) { MessageBox.Show("Impossible de tout supprimer : " + ex.Message); }
+            _settings.Modpacks.RemoveAll(m => m.Id == pack.Id);
+            _settings.Save();
+            RefreshVersionList();
+            RefreshInstalledPacks();
+            _packsLoaded = false;
+        }
+
+        // ------------------------------------------------------------- serveurs
+
+        private async Task RefreshServersAsync()
+        {
+            var views = _settings.Servers.Select(s => new ServerView { Entry = s }).ToList();
+            ServerList.ItemsSource = views;
+            ServersEmptyText.Visibility = views.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (views.Count == 0) return;
+
+            await Task.WhenAll(views.Select(async v =>
+            {
+                try
+                {
+                    var st = await ServerPinger.PingAsync(v.Entry.Address);
+                    v.Motd = string.IsNullOrWhiteSpace(st.Motd) ? st.Version : st.Motd;
+                    v.PlayersText = $"{st.Players:N0} / {st.MaxPlayers:N0} joueurs".Replace(' ', ' ');
+                    v.PingText = st.Ping + " ms";
+                    v.StatusBrush = st.Ping < 80 ? new SolidColorBrush(Color.FromRgb(0x4A, 0xDE, 0x80))
+                        : st.Ping < 180 ? new SolidColorBrush(Color.FromRgb(0xFF, 0xC2, 0x3D))
+                        : new SolidColorBrush(Color.FromRgb(0xFF, 0x5C, 0x5C));
+                    if (st.Favicon != null)
+                    {
+                        var img = new BitmapImage();
+                        img.BeginInit();
+                        img.StreamSource = new MemoryStream(st.Favicon);
+                        img.CacheOption = BitmapCacheOption.OnLoad;
+                        img.EndInit();
+                        img.Freeze();
+                        v.Favicon = img;
+                    }
+                }
+                catch
+                {
+                    v.Motd = "Hors ligne ou injoignable";
+                    v.PlayersText = "—";
+                    v.PingText = "hors ligne";
+                    v.StatusBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x5C, 0x5C));
+                }
+            }));
+            if (ServerList.ItemsSource == views)
+            {
+                ServerList.ItemsSource = null;
+                ServerList.ItemsSource = views;
+            }
+        }
+
+        private async void RefreshServers_Click(object sender, RoutedEventArgs e) => await RefreshServersAsync();
+
+        private async void AddServer_Click(object sender, RoutedEventArgs e) => await AddServerAsync();
+
+        private async void ServerAddress_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) await AddServerAsync();
+        }
+
+        private async Task AddServerAsync()
+        {
+            var address = ServerAddressBox.Text.Trim();
+            if (address.Length == 0) return;
+            var name = ServerNameBox.Text.Trim();
+            if (name.Length == 0) name = address;
+            _settings.Servers.Add(new ServerEntry { Name = name, Address = address });
+            _settings.Save();
+            ServerNameBox.Text = ServerAddressBox.Text = "";
+            await RefreshServersAsync();
+        }
+
+        private async void RemoveServer_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not ServerView v) return;
+            _settings.Servers.Remove(v.Entry);
+            _settings.Save();
+            await RefreshServersAsync();
+        }
+
+        private void JoinServer_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not ServerView v) return;
+            _joinServer = v.Entry.Address;
+            GoHome();
+            StatusText.Text = "Lancement et connexion à " + v.Entry.Name + "...";
+            Play_Click(sender, e);
+        }
+
+        // ------------------------------------------------------------- captures d'écran
+
+        private void LoadShots()
+        {
+            var dirs = new List<string> { Path.Combine(Paths.Root, "screenshots") };
+            var inst = Path.Combine(Paths.Root, "instances");
+            if (Directory.Exists(inst))
+                dirs.AddRange(Directory.GetDirectories(inst).Select(d => Path.Combine(d, "screenshots")));
+
+            var files = dirs.Where(Directory.Exists)
+                .SelectMany(d => Directory.GetFiles(d, "*.png"))
+                .Select(f => new FileInfo(f))
+                .OrderByDescending(f => f.LastWriteTime)
+                .Take(120)
+                .ToList();
+
+            var views = new List<ShotView>();
+            foreach (var f in files)
+            {
+                try
+                {
+                    var img = new BitmapImage();
+                    img.BeginInit();
+                    img.UriSource = new Uri(f.FullName);
+                    img.DecodePixelWidth = 320;
+                    img.CacheOption = BitmapCacheOption.OnLoad;   // ne bloque pas le fichier
+                    img.EndInit();
+                    img.Freeze();
+                    views.Add(new ShotView { Path = f.FullName, Thumb = img, Label = f.LastWriteTime.ToString("dd/MM/yyyy HH:mm") });
+                }
+                catch { }
+            }
+            ShotsList.ItemsSource = views;
+            ShotsCount.Text = views.Count + (views.Count > 1 ? " captures" : " capture");
+            ShotsEmptyText.Visibility = views.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void RefreshShots_Click(object sender, RoutedEventArgs e) => LoadShots();
+
+        private void Shot_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is ShotView v) OpenUrl(v.Path);
+        }
+
+        private void Shot_RightClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not ShotView v) return;
+            try
+            {
+                var img = new BitmapImage();
+                img.BeginInit();
+                img.UriSource = new Uri(v.Path);
+                img.CacheOption = BitmapCacheOption.OnLoad;
+                img.EndInit();
+                Clipboard.SetImage(img);
+                StatusText.Text = "Capture copiée !";
+                ShotsCount.Text = "Capture copiée dans le presse-papiers ✓";
+            }
+            catch { }
+        }
+
         // ------------------------------------------------------------- mise à jour du launcher
 
         private async void Update_Click(object sender, RoutedEventArgs e)
@@ -1057,5 +1432,24 @@ namespace ForpakLauncher
         {
             try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); } catch { }
         }
+    }
+
+    public class ServerView
+    {
+        public ServerEntry Entry { get; set; }
+        public string Name => Entry.Name;
+        public string Address => Entry.Address;
+        public string Motd { get; set; } = "Connexion...";
+        public string PlayersText { get; set; } = "";
+        public string PingText { get; set; } = "";
+        public Brush StatusBrush { get; set; } = Brushes.Gray;
+        public ImageSource Favicon { get; set; }
+    }
+
+    public class ShotView
+    {
+        public string Path { get; set; }
+        public ImageSource Thumb { get; set; }
+        public string Label { get; set; }
     }
 }

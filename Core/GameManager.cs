@@ -8,10 +8,13 @@ namespace ForpakLauncher.Core
     public class McVersion
     {
         public string Id;
-        public string Type;   // release / snapshot / old_beta ...
+        public string Type;   // release / snapshot / old_beta ... / modpack
         public string Url;
         public string Sha1;
-        public override string ToString() => Type == "release" ? Id : $"{Id}  ({Type})";
+        public string PackId;     // si c'est un modpack installé
+        public string PackName;
+        public override string ToString() =>
+            Type == "modpack" ? $"📦 {PackName}  ({Id})" : Type == "release" ? Id : $"{Id}  ({Type})";
     }
 
     /// <summary>
@@ -53,7 +56,7 @@ namespace ForpakLauncher.Core
         // ----------------------------------------------------------------- installation
 
         /// <summary>Installe tout ce qu'il faut et renvoie l'id de version à lancer.</summary>
-        public async Task<string> InstallAsync(McVersion version, bool fabric, CancellationToken ct)
+        public async Task<string> InstallAsync(McVersion version, bool fabric, CancellationToken ct, string loaderVersion = null)
         {
             Status?.Invoke("Récupération de la version " + version.Id + "...");
             Progress?.Invoke(-1);
@@ -63,7 +66,7 @@ namespace ForpakLauncher.Core
 
             var launchId = version.Id;
             if (fabric)
-                launchId = await InstallFabricAsync(version.Id, ct);
+                launchId = await InstallFabricAsync(version.Id, ct, loaderVersion);
 
             var vjson = LoadMerged(launchId);
             var baseId = BaseId(launchId);
@@ -202,14 +205,15 @@ namespace ForpakLauncher.Core
 
         // ----------------------------------------------------------------- Fabric
 
-        private async Task<string> InstallFabricAsync(string mcVersion, CancellationToken ct)
+        private async Task<string> InstallFabricAsync(string mcVersion, CancellationToken ct, string wantedLoader = null)
         {
             Status?.Invoke("Installation de Fabric...");
             var loaders = JsonNode.Parse(await _http.GetStringAsync($"{FabricMeta}/versions/loader/{mcVersion}", ct)).AsArray();
             if (loaders.Count == 0)
                 throw new Exception($"Fabric n'existe pas pour la version {mcVersion}.");
 
-            var pick = loaders.FirstOrDefault(l => (bool?)l["loader"]?["stable"] == true) ?? loaders[0];
+            var pick = (wantedLoader == null ? null : loaders.FirstOrDefault(l => (string)l["loader"]?["version"] == wantedLoader))
+                       ?? loaders.FirstOrDefault(l => (bool?)l["loader"]?["stable"] == true) ?? loaders[0];
             var loaderVer = (string)pick["loader"]["version"];
 
             var profileText = await _http.GetStringAsync($"{FabricMeta}/versions/loader/{mcVersion}/{loaderVer}/profile/json", ct);
@@ -263,7 +267,8 @@ namespace ForpakLauncher.Core
 
         // ----------------------------------------------------------------- lancement
 
-        public Process Launch(string launchId, McAccount acc, Settings s, string javaPath, string gameDir)
+        public Process Launch(string launchId, McAccount acc, Settings s, string javaPath, string gameDir,
+            string joinServer = null)
         {
             var vjson = LoadMerged(launchId);
             var baseId = BaseId(launchId);
@@ -347,6 +352,12 @@ namespace ForpakLauncher.Core
             args.AddRange(jvm.Select(a => Fill(a, vars)));
             args.Add((string)vjson["mainClass"]);
             args.AddRange(game.Select(a => Fill(a, vars)));
+            // Rejoindre un serveur directement (Minecraft 1.20+)
+            if (!string.IsNullOrWhiteSpace(joinServer))
+            {
+                args.Add("--quickPlayMultiplayer");
+                args.Add(joinServer.Trim());
+            }
 
             var psi = new ProcessStartInfo(javaPath)
             {

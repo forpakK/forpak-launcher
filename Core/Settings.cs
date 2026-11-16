@@ -40,8 +40,11 @@ namespace ForpakLauncher.Core
         public bool PerformanceMode { get; set; } = true; // pack FPS (Sodium, Lithium...)
         public bool AnimatedBackground { get; set; } = true;
         public string CurseForgeApiKey { get; set; } = "";
+        public List<ModpackInstance> Modpacks { get; set; } = new();
+        public List<ServerEntry> Servers { get; set; } = new();
         public bool CloseOnLaunch { get; set; } = false;
         public string LastVersion { get; set; } = "";
+        public string LastPack { get; set; }
 
         // Compte (le refresh token est chiffré avec DPAPI, lié à ta session Windows)
         public string AccountName { get; set; } = "";
