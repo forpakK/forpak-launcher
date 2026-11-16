@@ -16,9 +16,14 @@ namespace ForpakLauncher.Core
         private readonly HttpClient _http;
         public Downloader(HttpClient http) { _http = http; }
 
-        public async Task RunAsync(IEnumerable<DownloadJob> jobs, IProgress<(int done, int total)> progress,
-            CancellationToken ct, int parallel = 16)
+        /// <summary>
+        /// Télécharge tout. Si continueOnError = true, un fichier qui échoue n'arrête pas les autres :
+        /// la liste des fichiers ratés est renvoyée.
+        /// </summary>
+        public async Task<List<DownloadJob>> RunAsync(IEnumerable<DownloadJob> jobs, IProgress<(int done, int total)> progress,
+            CancellationToken ct, int parallel = 16, bool continueOnError = false)
         {
+            var failed = new List<DownloadJob>();
             // On ne télécharge que ce qui manque ou qui est abîmé
             var todo = jobs
                 .GroupBy(j => j.Path, StringComparer.OrdinalIgnoreCase)
@@ -28,7 +33,7 @@ namespace ForpakLauncher.Core
 
             int done = 0, total = todo.Count;
             progress?.Report((0, total));
-            if (total == 0) return;
+            if (total == 0) return failed;
 
             using var gate = new SemaphoreSlim(parallel);
             var tasks = todo.Select(async job =>
@@ -37,11 +42,19 @@ namespace ForpakLauncher.Core
                 try
                 {
                     await DownloadOneAsync(job, ct);
-                    progress?.Report((Interlocked.Increment(ref done), total));
                 }
-                finally { gate.Release(); }
+                catch (Exception) when (continueOnError)
+                {
+                    lock (failed) failed.Add(job);
+                }
+                finally
+                {
+                    progress?.Report((Interlocked.Increment(ref done), total));
+                    gate.Release();
+                }
             });
             await Task.WhenAll(tasks);
+            return failed;
         }
 
         public async Task DownloadOneAsync(DownloadJob job, CancellationToken ct)
@@ -52,17 +65,25 @@ namespace ForpakLauncher.Core
                 try
                 {
                     Directory.CreateDirectory(System.IO.Path.GetDirectoryName(job.Path));
-                    var tmp = job.Path + ".part";
-                    using (var res = await _http.GetAsync(job.Url, HttpCompletionOption.ResponseHeadersRead, ct))
+                    // Nom temporaire unique : un vieux .part bloqué (antivirus...) ne gêne plus
+                    var tmp = job.Path + "." + Guid.NewGuid().ToString("N").Substring(0, 8) + ".part";
+                    try
                     {
-                        res.EnsureSuccessStatusCode();
-                        await using var fs = File.Create(tmp);
-                        await res.Content.CopyToAsync(fs, ct);
+                        using (var res = await _http.GetAsync(job.Url, HttpCompletionOption.ResponseHeadersRead, ct))
+                        {
+                            res.EnsureSuccessStatusCode();
+                            await using var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+                            await res.Content.CopyToAsync(fs, ct);
+                        }
+                        if (!string.IsNullOrEmpty(job.Sha1) && !Sha1Of(tmp).Equals(job.Sha1, StringComparison.OrdinalIgnoreCase))
+                            throw new Exception("SHA1 invalide");
+                        await MoveWithRetryAsync(tmp, job.Path, ct);
+                        return;
                     }
-                    if (!string.IsNullOrEmpty(job.Sha1) && !Sha1Of(tmp).Equals(job.Sha1, StringComparison.OrdinalIgnoreCase))
-                        throw new Exception("SHA1 invalide");
-                    File.Move(tmp, job.Path, true);
-                    return;
+                    finally
+                    {
+                        try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                    }
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
@@ -73,6 +94,21 @@ namespace ForpakLauncher.Core
             }
             Log.Write($"Échec téléchargement {job.Url} : {last?.Message}");
             throw new Exception($"Impossible de télécharger {System.IO.Path.GetFileName(job.Path)} ({last?.Message})");
+        }
+
+        /// <summary>
+        /// L'antivirus analyse souvent un fichier qui vient d'être écrit et le bloque quelques instants :
+        /// on réessaie le déplacement, puis on tente une copie.
+        /// </summary>
+        private static async Task MoveWithRetryAsync(string from, string to, CancellationToken ct)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                try { File.Move(from, to, true); return; }
+                catch (IOException) when (i < 7) { await Task.Delay(250 * (i + 1), ct); }
+                catch (UnauthorizedAccessException) when (i < 7) { await Task.Delay(250 * (i + 1), ct); }
+            }
+            File.Copy(from, to, true);
         }
 
         private static bool IsValid(DownloadJob j)
@@ -89,7 +125,7 @@ namespace ForpakLauncher.Core
 
         public static string Sha1Of(string path)
         {
-            using var fs = File.OpenRead(path);
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             return Convert.ToHexString(SHA1.HashData(fs)).ToLowerInvariant();
         }
     }

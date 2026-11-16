@@ -1201,7 +1201,17 @@ namespace ForpakLauncher
                 if (b != null) b.Content = "Installé ✓";
                 RefreshVersionList();
                 RefreshInstalledPacks();
-                PackStatusText.Text = $"{pack.Name} est installé ! Choisis-le dans l'accueil (📦) et clique sur JOUER.";
+                // On sélectionne directement le modpack dans l'accueil
+                var item = (VersionCombo.ItemsSource as IEnumerable<McVersion>)?.FirstOrDefault(v => v.PackId == pack.Id);
+                if (item != null) VersionCombo.SelectedItem = item;
+                PackStatusText.Text = $"{pack.Name} est installé et sélectionné ! Va dans Accueil et clique sur JOUER.";
+                if (pack.FailedFiles.Count > 0)
+                    MessageBox.Show(
+                        $"Le modpack est installé, mais {pack.FailedFiles.Count} fichier(s) n'ont pas pu être téléchargés :\n\n" +
+                        string.Join("\n", pack.FailedFiles.Take(10)) +
+                        "\n\nSouvent c'est l'antivirus qui bloque le fichier. Tu peux réessayer l'import plus tard " +
+                        "(les fichiers déjà là ne sont pas retéléchargés).",
+                        "Modpack", MessageBoxButton.OK, MessageBoxImage.Information);
                 PackBar.IsIndeterminate = false;
                 PackBar.Value = 1;
             }

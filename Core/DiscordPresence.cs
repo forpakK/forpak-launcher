@@ -127,8 +127,11 @@ namespace ForpakLauncher.Core
 
         public void Dispose()
         {
+            // On attend qu'un envoi en cours soit fini avant de fermer
+            if (!_gate.Wait(500)) return;
             try { _pipe?.Dispose(); } catch { }
             _pipe = null;
+            _gate.Release();
         }
     }
 }

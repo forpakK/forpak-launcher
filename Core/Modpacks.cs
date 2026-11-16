@@ -13,6 +13,10 @@ namespace ForpakLauncher.Core
         public string Version { get; set; }
         public int ModCount { get; set; }
 
+        /// <summary>Fichiers qui n'ont pas pu être téléchargés (pas sauvegardé).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public List<string> FailedFiles { get; set; } = new();
+
         public string Dir => Path.Combine(Paths.Root, "instances", "pack-" + Id);
         public string Info => $"Minecraft {McVersion} · Fabric · {ModCount} fichiers";
     }
@@ -81,7 +85,9 @@ namespace ForpakLauncher.Core
         public async Task<ModpackInstance> ImportAsync(string mrpackPath, string idHint, string iconUrl,
             Action<string> status, IProgress<(int, int)> progress)
         {
-            using var zip = ZipFile.OpenRead(mrpackPath);
+            // Ouverture en lecture partagée : marche même si le fichier est encore ouvert ailleurs
+            using var fileStream = new FileStream(mrpackPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var zip = new ZipArchive(fileStream, ZipArchiveMode.Read);
             var indexEntry = zip.GetEntry("modrinth.index.json")
                              ?? throw new Exception("Ce fichier n'est pas un modpack Modrinth (.mrpack).");
             JsonNode index;
@@ -125,7 +131,17 @@ namespace ForpakLauncher.Core
             }
             pack.ModCount = jobs.Count;
             status?.Invoke($"Téléchargement des {jobs.Count} fichiers du modpack...");
-            await _dl.RunAsync(jobs, progress, CancellationToken.None, 12);
+            var failed = await _dl.RunAsync(jobs, progress, CancellationToken.None, 8, continueOnError: true);
+            // Un deuxième essai pour ceux qui ont raté (souvent l'antivirus qui bloquait le fichier)
+            if (failed.Count > 0)
+            {
+                status?.Invoke($"Nouvel essai pour {failed.Count} fichier(s)...");
+                await Task.Delay(1500);
+                failed = await _dl.RunAsync(failed, null, CancellationToken.None, 2, continueOnError: true);
+            }
+            if (jobs.Count > 0 && failed.Count == jobs.Count)
+                throw new Exception("Aucun fichier du modpack n'a pu être téléchargé. Vérifie ta connexion.");
+            pack.FailedFiles = failed.Select(f => Path.GetFileName(f.Path)).ToList();
 
             // Dossiers "overrides" (configs, options, resource packs...)
             status?.Invoke("Copie des réglages du modpack...");

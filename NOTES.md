@@ -1,1 +1,1 @@
-HUD : agrandis ou rétrécis chaque élément à la souris (coin, + / -), nouvel affichage plus propre (touches animées, barres de durabilité, pastilles de potions) et menu des modules rangé par catégories.
+Modpacks : un fichier bloqué (souvent par l'antivirus) n'annule plus tout l'import, le launcher réessaie et le pack est sélectionné automatiquement.
