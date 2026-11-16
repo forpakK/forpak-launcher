@@ -30,10 +30,11 @@ public final class Hud {
 
     // Style de l'élément en cours de dessin (taille, fond, couleur)
     static fr.forpak.client.Config.ElementStyle current;
-    static int bg() { return current == null || current.background ? bg() : 0x00000000; }
-    static int accent() { return current == null ? accent() : current.color; }
+    static int bg() { return current == null || current.background ? Ui.BG : 0x00000000; }
+    static int accent() { return current == null ? Ui.ACCENT : current.color; }
     static int pressed() { return (accent() & 0x00FFFFFF) | 0xC8000000; }
     public static final List<HudElement> ELEMENTS = new ArrayList<>();
+    private static final java.util.Set<String> FAILED = new java.util.HashSet<>();
 
     private static final EquipmentSlot[] ARMOR = {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
@@ -94,8 +95,13 @@ public final class Hud {
         int sh = ctx.getScaledWindowHeight();
 
         for (HudElement e : ELEMENTS) {
-            if (!e.isEnabled()) continue;
-            if (!editing && !e.visible(mc)) continue;
+            if (!e.isEnabled() || FAILED.contains(e.id)) continue;
+            try {
+                if (!editing && !e.visible(mc)) continue;
+            } catch (Throwable t) {
+                FAILED.add(e.id);
+                continue;
+            }
             current = ForpakClient.CONFIG.style(e.id);
             float scale = Math.max(0.5f, Math.min(2.5f, current.scale));
             int w = Math.round(e.width(mc, editing) * scale), h = Math.round(e.height(mc, editing) * scale);
@@ -105,8 +111,14 @@ public final class Hud {
             int y = Math.round(p[1] * Math.max(0, sh - h));
             e.lastX = x; e.lastY = y; e.lastW = w; e.lastH = h;
             fr.forpak.client.HudHook.push(ctx, x, y, scale);
-            e.render(ctx, mc, 0, 0, editing);
-            fr.forpak.client.HudHook.pop(ctx);
+            try {
+                e.render(ctx, mc, 0, 0, editing);
+            } catch (Throwable t) {
+                // Sécurité : un élément qui bug est ignoré au lieu de faire planter le jeu
+                if (FAILED.add(e.id)) System.err.println("[Velox] Élément HUD " + e.id + " désactivé : " + t);
+            } finally {
+                fr.forpak.client.HudHook.pop(ctx);
+            }
         }
         current = null;
     }
