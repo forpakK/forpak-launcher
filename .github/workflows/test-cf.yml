@@ -1,0 +1,24 @@
+name: Test cle CurseForge
+
+on:
+  push:
+    paths: [ ".github/workflows/test-cf.yml" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tester la cle (sans l'afficher)
+        env:
+          CF_KEY: ${{ secrets.CF_API_KEY }}
+        run: |
+          echo "Longueur de la cle : ${#CF_KEY} caracteres (attendu : 60)"
+          echo "Commence par \$2a\$10\$ : $([[ "$CF_KEY" == '$2a$10$'* ]] && echo oui || echo non)"
+          echo "Espaces/retours a la ligne : $(printf '%s' "$CF_KEY" | tr -d -c ' \n\r\t' | wc -c)"
+          for path in "/v1/games" "/v1/categories?gameId=432&classId=6" "/v1/mods/search?gameId=432&classId=6&pageSize=5" "/v1/mods/search?gameId=432&classId=6&gameVersion=1.21.11&modLoaderType=4&pageSize=5"; do
+            code=$(curl -s -o /tmp/out.json -w "%{http_code}" -H "x-api-key: $CF_KEY" -H "Accept: application/json" "https://api.curseforge.com$path")
+            echo "$code  $path  $(head -c 120 /tmp/out.json)"
+          done
+          echo "--- sans cle :"
+          curl -s -o /dev/null -w "%{http_code}  /v1/categories sans cle\n" "https://api.curseforge.com/v1/categories?gameId=432&classId=6"
