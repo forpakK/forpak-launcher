@@ -19,6 +19,7 @@ namespace ForpakLauncher
         private readonly Updater _updater;
         private readonly CurseForge _cf;
         private readonly Modpacks _packs;
+        private readonly DiscordPresence _discord = new();
         private string _joinServer;
         private string _remoteVersion;
         private List<McVersion> _allVersions = new();
@@ -55,8 +56,11 @@ namespace ForpakLauncher
             _loading = false;
             UpdateSubtitle();
 
+            _discord.Enabled = _settings.DiscordStatus;
+            Closed += (_, _) => { _discord.Clear(); Thread.Sleep(150); _discord.Dispose(); };
             Loaded += async (_, _) =>
             {
+                _discord.Set("Dans le launcher", "Prépare sa partie", resetTimer: true);
                 LoadLogo(ModrinthLogo, "modrinth.com");
                 LoadLogo(CurseForgeLogo, "www.curseforge.com");
                 CurseForgeLogo.Opacity = 0.45;
@@ -538,10 +542,16 @@ namespace ForpakLauncher
                 var gameDir = pack != null ? pack.Dir : ModManager.GameDir(version.Id, fabric);
                 var proc = _game.Launch(launchId, _account, _settings, java, gameDir, joinServer);
                 _gameRunning = true;
+                _discord.Set("Joue à Minecraft " + version.Id,
+                    joinServer != null ? "Sur " + joinServer
+                    : pack != null ? "Modpack " + pack.Name
+                    : fabric && _settings.ForpakClient ? "Avec les modules PvP Velox" : "Minecraft Java",
+                    resetTimer: true);
                 StopBackground(); // le launcher ne consomme rien pendant que tu joues
                 proc.Exited += (_, _) => Dispatcher.Invoke(() =>
                 {
                     _gameRunning = false;
+                    _discord.Set("Dans le launcher", "Vient de finir une partie", resetTimer: true);
                     if (_settings.AnimatedBackground) StartBackground();
                     StatusText.Text = proc.ExitCode == 0 ? "Partie terminée." :
                         $"Le jeu s'est arrêté (code {proc.ExitCode}). Détails : {Paths.LogFile}";
@@ -601,6 +611,7 @@ namespace ForpakLauncher
             ForpakClientSwitch.IsChecked = _settings.ForpakClient;
             PerfSettingSwitch.IsChecked = _settings.PerformanceMode;
             AnimSwitch.IsChecked = _settings.AnimatedBackground;
+            DiscordSwitch.IsChecked = _settings.DiscordStatus;
             CfKeyBox.Text = _settings.CurseForgeApiKey;
             CfKeyHint.Text = CurseForge.BuiltInKey != null
                 ? "Une clé est déjà intégrée au launcher : laisse vide, ou mets la tienne pour la remplacer."
@@ -627,6 +638,9 @@ namespace ForpakLauncher
             _settings.ShowSnapshots = SnapshotSwitch.IsChecked == true;
             _settings.CloseOnLaunch = CloseSwitch.IsChecked == true;
             _settings.AnimatedBackground = AnimSwitch.IsChecked == true;
+            _settings.DiscordStatus = DiscordSwitch.IsChecked == true;
+            _discord.Enabled = _settings.DiscordStatus;
+            if (_discord.Enabled) _discord.Set("Dans le launcher", "Prépare sa partie"); else _discord.Clear();
             if (_settings.CurseForgeApiKey != CfKeyBox.Text.Trim())
             {
                 _settings.CurseForgeApiKey = CfKeyBox.Text.Trim();

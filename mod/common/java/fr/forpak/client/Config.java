@@ -23,6 +23,9 @@ public class Config {
     public boolean anchorOptimizer = true;
     public boolean customMenu = true;
     public boolean cape = true;
+    public boolean freelook = true;
+    public boolean hitColorEnabled = false;
+    public int hitColor = 0xFF3EE6A8;
 
     // Viseur perso
     public boolean crosshair = false;

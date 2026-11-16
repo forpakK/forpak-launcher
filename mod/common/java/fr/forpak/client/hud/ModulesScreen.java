@@ -34,6 +34,9 @@ public class ModulesScreen extends Screen {
         modules.add(new Module("Viseur perso", "Clic droit : réglages", () -> c.crosshair, v -> { c.crosshair = v; c.save(); },
                 CrosshairScreen::new));
         modules.add(new Module("Cape Velox", "Visible par Velox", () -> c.cape, v -> { c.cape = v; c.save(); }, null));
+        modules.add(new Module("Freelook", "Maintenir Alt gauche", () -> c.freelook, v -> { c.freelook = v; c.save(); }, null));
+        modules.add(new Module("Hit color", "Clic droit : couleur", () -> c.hitColorEnabled,
+                v -> { c.hitColorEnabled = v; c.save(); }, HitColorScreen::new));
         modules.add(new Module("Crystal Optimizer", "Crystal PvP", () -> c.crystalOptimizer, v -> { c.crystalOptimizer = v; c.save(); }, null));
         modules.add(new Module("Anchor Optimizer", "Anchor PvP", () -> c.anchorOptimizer, v -> { c.anchorOptimizer = v; c.save(); }, null));
         modules.add(new Module("Zoom", "Touche C", () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));

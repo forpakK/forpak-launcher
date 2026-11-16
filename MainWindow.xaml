@@ -1157,6 +1157,8 @@
                                           Content="Pack FPS (Sodium, Lithium...)" Margin="0,12,0,0"/>
                                 <CheckBox x:Name="AnimSwitch" Style="{StaticResource Switch}"
                                           Content="Fond animé" Margin="0,12,0,0"/>
+                                <CheckBox x:Name="DiscordSwitch" Style="{StaticResource Switch}"
+                                          Content="Statut Discord (« Joue à Velox Client »)" Margin="0,12,0,0"/>
                                 <CheckBox x:Name="SnapshotSwitch" Style="{StaticResource Switch}" Content="Afficher les snapshots"
                                           Margin="0,12,0,0"/>
                                 <CheckBox x:Name="CloseSwitch" Style="{StaticResource Switch}" Content="Cacher le launcher pendant le jeu"

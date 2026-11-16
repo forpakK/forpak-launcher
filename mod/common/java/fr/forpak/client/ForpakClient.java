@@ -62,6 +62,7 @@ public class ForpakClient implements ClientModInitializer {
         boolean sneak = pressed(handle, GLFW.GLFW_KEY_V);
 
         Stats.tick(client);
+        Freelook.tick(client, GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS);
 
         // Menu principal Velox à la place de l'écran titre de Minecraft
         if (CONFIG.customMenu && client.currentScreen instanceof TitleScreen)

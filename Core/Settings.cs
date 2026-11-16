@@ -39,6 +39,7 @@ namespace ForpakLauncher.Core
         public bool ForpakClient { get; set; } = true;   // modules PvP (1.21.1 / 1.21.11)
         public bool PerformanceMode { get; set; } = true; // pack FPS (Sodium, Lithium...)
         public bool AnimatedBackground { get; set; } = true;
+        public bool DiscordStatus { get; set; } = true;
         public string CurseForgeApiKey { get; set; } = "";
         public List<ModpackInstance> Modpacks { get; set; } = new();
         public List<ServerEntry> Servers { get; set; } = new();

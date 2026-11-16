@@ -6,7 +6,10 @@
   "client": [
     "EntityStatusMixin",
     "CapeMixin",
-    "CrosshairMixin"
+    "CrosshairMixin",
+    "FreelookEntityMixin",
+    "FreelookCameraMixin",
+    "HitColorMixin"
   ],
   "injectors": {
     "defaultRequire": 0
