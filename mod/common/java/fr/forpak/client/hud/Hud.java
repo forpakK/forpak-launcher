@@ -72,6 +72,7 @@ public final class Hud {
                 return System.currentTimeMillis() - Stats.lastHitTimeKb < 2500;
             }
         });
+        ELEMENTS.add(text("session", "Stats de session", false, 0.005f, 0.90f, "Session", mc -> Stats.sessionText()));
         ELEMENTS.add(new TextElement("toggles", "Statut Sprint", true, 0.005f, 0.96f, "", Hud::toggleText) {
             @Override public boolean visible(MinecraftClient mc) { return !toggleText(mc).isEmpty(); }
         });

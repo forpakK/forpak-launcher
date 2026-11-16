@@ -1,6 +1,8 @@
 package fr.forpak.client;
 
+import fr.forpak.client.Crosshair;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
@@ -12,6 +14,11 @@ public final class HudHook {
     public static void register() {
         HudElementRegistry.addLast(Identifier.of("veloxclient", "hud"),
                 (ctx, tickCounter) -> fr.forpak.client.hud.Hud.render(ctx, false));
+        // Viseur perso : remplace celui de Minecraft quand le module est activé
+        HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, old -> (ctx, tickCounter) -> {
+            if (Crosshair.enabled()) Crosshair.render(ctx);
+            else old.render(ctx, tickCounter);
+        });
     }
 
     /** Dessine une image (étirée sur w x h). */

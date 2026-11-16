@@ -29,9 +29,12 @@ public class VeloxMenuScreen extends Screen {
         if (Ui.button(ctx, textRenderer, "MODULES", cx - bw / 2, y, bw, bh + 6, mouseX, mouseY, clicks.left, true))
             client.setScreen(new ModulesScreen(this));
         y += bh + 14;
-        int half = (bw - 8) / 2;
-        if (Ui.button(ctx, textRenderer, "Modifier le HUD", cx - bw / 2, y, half, 24, mouseX, mouseY, clicks.left, false))
+        if (Ui.button(ctx, textRenderer, "DÉPLACER LE HUD", cx - bw / 2, y, bw, bh, mouseX, mouseY, clicks.left, true))
             client.setScreen(new HudEditorScreen(this));
+        y += bh + 10;
+        int half = (bw - 8) / 2;
+        if (Ui.button(ctx, textRenderer, "Profils", cx - bw / 2, y, half, 24, mouseX, mouseY, clicks.left, false))
+            client.setScreen(new ProfilesScreen(this));
         if (Ui.button(ctx, textRenderer, "Fermer", cx - bw / 2 + half + 8, y, half, 24, mouseX, mouseY, clicks.left, false))
             close();
 

@@ -28,6 +28,17 @@ public class ForpakClient implements ClientModInitializer {
             return CrystalOptimizer.onAttack(player, world, hand, entity, hit);
         });
         UseBlockCallback.EVENT.register(AnchorOptimizer::onUse);
+        UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
+            // Compteur de crystals posés (stats de session)
+            if (world.isClient() && hand == net.minecraft.util.Hand.MAIN_HAND
+                    && player.getMainHandStack().isOf(net.minecraft.item.Items.END_CRYSTAL)) {
+                var b = world.getBlockState(hit.getBlockPos());
+                if (b.isOf(net.minecraft.block.Blocks.OBSIDIAN) || b.isOf(net.minecraft.block.Blocks.BEDROCK))
+                    Stats.sessionCrystals++;
+            }
+            return net.minecraft.util.ActionResult.PASS;
+        });
+        Capes.loadList();
         ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
     }
 

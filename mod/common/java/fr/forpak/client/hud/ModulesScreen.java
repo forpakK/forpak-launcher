@@ -14,7 +14,8 @@ import java.util.function.Consumer;
 /** Liste des modules façon Lunar : clic gauche = activer, clic droit = options. */
 public class ModulesScreen extends Screen {
 
-    private record Module(String name, String desc, BooleanSupplier get, Consumer<Boolean> set, HudElement element) { }
+    private record Module(String name, String desc, BooleanSupplier get, Consumer<Boolean> set,
+                          java.util.function.Function<Screen, Screen> settings) { }
 
     private final Screen parent;
     private final List<Module> modules = new ArrayList<>();
@@ -28,7 +29,11 @@ public class ModulesScreen extends Screen {
         this.parent = parent;
         Config c = ForpakClient.CONFIG;
         for (HudElement e : Hud.ELEMENTS)
-            modules.add(new Module(e.name, "HUD · clic droit", e::isEnabled, e::setEnabled, e));
+            modules.add(new Module(e.name, "HUD · clic droit", e::isEnabled, e::setEnabled,
+                    parentScreen -> new ModuleSettingsScreen(parentScreen, e)));
+        modules.add(new Module("Viseur perso", "Clic droit : réglages", () -> c.crosshair, v -> { c.crosshair = v; c.save(); },
+                CrosshairScreen::new));
+        modules.add(new Module("Cape Velox", "Visible par Velox", () -> c.cape, v -> { c.cape = v; c.save(); }, null));
         modules.add(new Module("Crystal Optimizer", "Crystal PvP", () -> c.crystalOptimizer, v -> { c.crystalOptimizer = v; c.save(); }, null));
         modules.add(new Module("Anchor Optimizer", "Anchor PvP", () -> c.anchorOptimizer, v -> { c.anchorOptimizer = v; c.save(); }, null));
         modules.add(new Module("Zoom", "Touche C", () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));
@@ -68,8 +73,8 @@ public class ModulesScreen extends Screen {
             boolean hover = Ui.inside(mouseX, mouseY, x, y, CARD_W, CARD_H);
             boolean on = m.get().getAsBoolean();
             if (hover && clicks.left) { m.set().accept(!on); on = !on; }
-            if (hover && clicks.right && m.element() != null) {
-                client.setScreen(new ModuleSettingsScreen(this, m.element()));
+            if (hover && clicks.right && m.settings() != null) {
+                client.setScreen(m.settings().apply(this));
                 return;
             }
 

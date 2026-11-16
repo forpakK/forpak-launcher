@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "fr.forpak.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "EntityStatusMixin",
+    "CapeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

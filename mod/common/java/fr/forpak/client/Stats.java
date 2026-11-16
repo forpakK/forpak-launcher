@@ -71,9 +71,27 @@ public final class Stats {
     public static final Map<String, Integer> POPS = new LinkedHashMap<>();
     public static final Map<String, Long> POP_TIME = new LinkedHashMap<>();
 
+    // --- Session
+    public static long sessionStart = 0;
+    public static int sessionDeaths, sessionTotems, sessionCrystals;
+    private static boolean wasDead;
+
+    public static String sessionText() {
+        long min = sessionStart == 0 ? 0 : (System.currentTimeMillis() - sessionStart) / 60000;
+        String time = min >= 60 ? (min / 60) + "h" + String.format("%02d", min % 60) : min + " min";
+        return time + " · " + sessionDeaths + " morts · " + sessionTotems + " totems · " + sessionCrystals + " crystals";
+    }
+
     public static void tick(MinecraftClient mc) {
         ClientPlayerEntity p = mc.player;
-        if (p == null) { lastX = Double.NaN; return; }
+        if (p == null) { lastX = Double.NaN; sessionStart = 0; return; }
+        if (sessionStart == 0) {
+            sessionStart = System.currentTimeMillis();
+            sessionDeaths = sessionTotems = sessionCrystals = 0;
+        }
+        boolean dead = p.isDead();
+        if (dead && !wasDead) sessionDeaths++;
+        wasDead = dead;
         if (!Double.isNaN(lastX)) {
             double dx = p.getX() - lastX, dz = p.getZ() - lastZ;
             double inst = Math.sqrt(dx * dx + dz * dz) * 20.0;
@@ -108,6 +126,8 @@ public final class Stats {
     }
 
     public static void onTotemPop(String name) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player != null && mc.player.getName().getString().equals(name)) { sessionTotems++; return; }
         POPS.merge(name, 1, Integer::sum);
         POP_TIME.put(name, System.currentTimeMillis());
     }

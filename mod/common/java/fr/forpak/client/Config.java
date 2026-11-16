@@ -22,6 +22,46 @@ public class Config {
     public boolean crystalOptimizer = true;
     public boolean anchorOptimizer = true;
     public boolean customMenu = true;
+    public boolean cape = true;
+
+    // Viseur perso
+    public boolean crosshair = false;
+    public int crosshairStyle = 0;
+    public int crosshairSize = 4;
+    public int crosshairGap = 2;
+    public int crosshairColor = 0xFF3EE6A8;
+    public boolean crosshairOutline = true;
+
+    // Profils de HUD (PvP / Survie / Build)
+    public Map<String, Profile> profiles = new HashMap<>();
+
+    public static class Profile {
+        public Map<String, Boolean> enabled = new HashMap<>();
+        public Map<String, float[]> pos = new HashMap<>();
+        public Map<String, ElementStyle> styles = new HashMap<>();
+    }
+
+    public void saveProfile(String name) {
+        profiles.put(name, GSON.fromJson(GSON.toJson(snapshot()), Profile.class));
+        save();
+    }
+
+    public boolean loadProfile(String name) {
+        Profile p = profiles.get(name);
+        if (p == null) return false;
+        Profile copy = GSON.fromJson(GSON.toJson(p), Profile.class);
+        enabled = copy.enabled != null ? copy.enabled : new HashMap<>();
+        pos = copy.pos != null ? copy.pos : new HashMap<>();
+        styles = copy.styles != null ? copy.styles : new HashMap<>();
+        save();
+        return true;
+    }
+
+    private Profile snapshot() {
+        Profile p = new Profile();
+        p.enabled = enabled; p.pos = pos; p.styles = styles;
+        return p;
+    }
     public boolean zoom = true;
     public int zoomFov = 30;
     public boolean toggleSprintModule = true;
@@ -68,6 +108,7 @@ public class Config {
                     if (c.enabled == null) c.enabled = new HashMap<>();
                     if (c.pos == null) c.pos = new HashMap<>();
                     if (c.styles == null) c.styles = new HashMap<>();
+                    if (c.profiles == null) c.profiles = new HashMap<>();
                     return c;
                 }
             }
