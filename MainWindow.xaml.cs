@@ -17,6 +17,7 @@ namespace ForpakLauncher
         private readonly GameManager _game;
         private readonly ModManager _mods;
         private readonly Updater _updater;
+        private readonly CurseForge _cf;
         private string _remoteVersion;
         private List<McVersion> _allVersions = new();
         private McAccount _account;
@@ -42,6 +43,7 @@ namespace ForpakLauncher
             };
             _mods = new ModManager(_http);
             _updater = new Updater(_http);
+            _cf = new CurseForge(_http) { ApiKey = _settings.CurseForgeApiKey };
             VersionLabel.Text = "v" + Updater.CurrentVersionText;
 
             FabricSwitch.IsChecked = _settings.UseFabric;
@@ -484,6 +486,7 @@ namespace ForpakLauncher
             AccountButton.IsEnabled = !busy;
             NavMods.IsEnabled = !busy;
             NavSettings.IsEnabled = !busy;
+            SourcePanel.IsEnabled = !busy;
             PlayButton.Content = busy ? "..." : "JOUER";
             if (!busy) { Bar.Visibility = Visibility.Hidden; PercentText.Text = ""; }
         }
@@ -510,6 +513,7 @@ namespace ForpakLauncher
             ForpakClientSwitch.IsChecked = _settings.ForpakClient;
             PerfSettingSwitch.IsChecked = _settings.PerformanceMode;
             AnimSwitch.IsChecked = _settings.AnimatedBackground;
+            CfKeyBox.Text = _settings.CurseForgeApiKey;
             SavedText.Visibility = Visibility.Collapsed;
         }
 
@@ -532,6 +536,13 @@ namespace ForpakLauncher
             _settings.ShowSnapshots = SnapshotSwitch.IsChecked == true;
             _settings.CloseOnLaunch = CloseSwitch.IsChecked == true;
             _settings.AnimatedBackground = AnimSwitch.IsChecked == true;
+            if (_settings.CurseForgeApiKey != CfKeyBox.Text.Trim())
+            {
+                _settings.CurseForgeApiKey = CfKeyBox.Text.Trim();
+                _cf.ApiKey = _settings.CurseForgeApiKey;
+                _chipsFor = null;         // recharge les catégories CurseForge
+                _modsLoadedFor = null;
+            }
             _settings.Save();
             if (_settings.AnimatedBackground && !_gameRunning) StartBackground(); else StopBackground();
 
@@ -568,24 +579,45 @@ namespace ForpakLauncher
         private int _modTotal;
         private string _modQuery = "";
         private string _modsLoadedFor;
-        private bool _chipsBuilt;
+        private string _chipsFor;
+        private string _modSource = "modrinth";
+        private const string Curated = "__curated";
+        private bool IsCf => _modSource == "curseforge";
         private ModHit _detailHit;
         private ModProject _detailProject;
 
-        private void BuildCategoryChips()
+        private async Task BuildCategoryChipsAsync()
         {
-            if (_chipsBuilt) return;
-            _chipsBuilt = true;
-            foreach (var (slug, name) in ModManager.Categories)
+            if (_chipsFor == _modSource) return;
+            _chipsFor = _modSource;
+            CategoryChips.Children.Clear();
+            _modCategory = IsCf ? "" : Curated;
+
+            var cats = new List<(string Id, string Name)>();
+            if (IsCf)
+            {
+                cats.Add(("", "Tout"));
+                if (_cf.HasKey)
+                {
+                    try { cats.AddRange((await _cf.GetCategoriesAsync()).Take(14)); } catch { }
+                }
+            }
+            else
+            {
+                cats.Add((Curated, "★ Sélection Velox"));
+                cats.AddRange(ModManager.Categories.Select(c => (c.Slug, c.Name)));
+            }
+
+            foreach (var (id, name) in cats)
             {
                 var rb = new RadioButton
                 {
-                    Content = name, Tag = slug, GroupName = "modcat",
-                    Style = (Style)FindResource("Pill"), IsChecked = slug == ""
+                    Content = name, Tag = id, GroupName = "modcat",
+                    Style = (Style)FindResource("Pill"), IsChecked = id == _modCategory
                 };
-                rb.Checked += async (s, _) =>
+                rb.Checked += async (s2, _) =>
                 {
-                    _modCategory = (string)((RadioButton)s).Tag;
+                    _modCategory = (string)((RadioButton)s2).Tag;
                     _modPage = 0;
                     await LoadModsAsync();
                 };
@@ -593,15 +625,25 @@ namespace ForpakLauncher
             }
         }
 
+        private async void Source_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!IsLoaded || NavMods == null) return; // pendant InitializeComponent
+            _modSource = SrcCurseForge.IsChecked == true ? "curseforge" : "modrinth";
+            _modsLoadedFor = null;
+            if (NavMods.IsChecked != true) NavMods.IsChecked = true; // ouvre la page Mods
+            else await OpenModsPageAsync();
+        }
+
         private async Task OpenModsPageAsync()
         {
             if (ModsMc == null) return;
             if (FabricSwitch.IsChecked != true) FabricSwitch.IsChecked = true; // les mods ont besoin de Fabric
-            BuildCategoryChips();
+            await BuildCategoryChipsAsync();
             ModsVersionText.Text = "Fabric " + ModsMc;
+            ModsSourceText.Text = IsCf ? "via CurseForge" : "via Modrinth";
             ShowBrowse();
             RefreshInstalled();
-            if (_modsLoadedFor != ModsMc) { _modPage = 0; await LoadModsAsync(); }
+            if (_modsLoadedFor != ModsMc + _modSource) { _modPage = 0; await LoadModsAsync(); }
         }
 
         private async Task LoadModsAsync()
@@ -609,15 +651,38 @@ namespace ForpakLauncher
             var mc = ModsMc;
             if (mc == null) return;
             ModsEmptyText.Text = "Chargement...";
+            CfKeyPanel.Visibility = Visibility.Collapsed;
             ModResults.ItemsSource = null;
             PrevPageButton.IsEnabled = NextPageButton.IsEnabled = false;
+
+            if (IsCf && !_cf.HasKey)
+            {
+                ModsEmptyText.Text = "CurseForge demande une clé API gratuite.\n" +
+                    "Crée-la sur console.curseforge.com (onglet API Keys), puis colle-la dans les paramètres.";
+                CfKeyPanel.Visibility = Visibility.Visible;
+                PageText.Text = "Page 1";
+                return;
+            }
             try
             {
-                var (hits, total) = await _mods.SearchAsync(_modQuery, mc, _modSort, _modCategory, _modPage * ModManager.PageSize);
+                List<ModHit> hits;
+                int total;
+                if (IsCf)
+                    (hits, total) = await _cf.SearchAsync(_modQuery, mc, _modSort, _modCategory, _modPage * ModManager.PageSize);
+                else if (_modCategory == Curated && string.IsNullOrEmpty(_modQuery))
+                {
+                    hits = await _mods.GetCuratedAsync(mc);
+                    total = hits.Count;
+                }
+                else
+                {
+                    var cat = _modCategory == Curated ? "" : _modCategory;
+                    (hits, total) = await _mods.SearchAsync(_modQuery, mc, _modSort, cat, _modPage * ModManager.PageSize);
+                }
                 foreach (var h in hits)
-                    if (_mods.IsInstalled(h.ProjectId, mc)) h.InstallLabel = "Installé ✓";
+                    if (_mods.IsInstalled(h.IndexKey, mc)) h.InstallLabel = "Installé ✓";
                 _modTotal = total;
-                _modsLoadedFor = mc;
+                _modsLoadedFor = mc + _modSource;
                 ModResults.ItemsSource = hits;
                 ModScroll.ScrollToTop();
                 ModsEmptyText.Text = hits.Count == 0 ? "Aucun mod trouvé pour " + mc + "." : "";
@@ -699,7 +764,10 @@ namespace ForpakLauncher
             try
             {
                 var mc = ModsMc;
-                await Task.Run(() => _mods.InstallAsync(hit.ProjectId, mc));
+                if (hit.Source == "curseforge")
+                    await Task.Run(() => _cf.InstallAsync(hit.ProjectId, mc, _mods));
+                else
+                    await Task.Run(() => _mods.InstallAsync(hit.ProjectId, mc));
                 hit.InstallLabel = "Installé ✓";
                 b.Content = hit.InstallLabel;
                 RefreshInstalled();
@@ -762,6 +830,7 @@ namespace ForpakLauncher
             DetailDesc.Text = hit.Description;
             DetailIcon.Source = hit.IconUrl != null ? new BitmapImage(new Uri(hit.IconUrl)) : null;
             DetailInstall.Content = hit.InstallLabel;
+            DetailWebButton.Content = hit.Source == "curseforge" ? "Voir sur CurseForge" : "Voir sur Modrinth";
             DetailStats.Children.Clear();
             DetailGallery.Children.Clear();
             DetailInfo.Children.Clear();
@@ -774,8 +843,9 @@ namespace ForpakLauncher
             try
             {
                 var mc = ModsMc;
-                var projectTask = _mods.GetProjectAsync(hit.ProjectId);
-                var versionsTask = _mods.GetVersionsAsync(hit.ProjectId, mc);
+                bool cf = hit.Source == "curseforge";
+                var projectTask = cf ? _cf.GetProjectAsync(hit.ProjectId) : _mods.GetProjectAsync(hit.ProjectId);
+                var versionsTask = cf ? _cf.GetVersionsAsync(hit.ProjectId, mc) : _mods.GetVersionsAsync(hit.ProjectId, mc);
                 var p = await projectTask;
                 if (_detailHit != hit) return; // l'utilisateur a changé de mod entre-temps
                 _detailProject = p;
@@ -861,9 +931,24 @@ namespace ForpakLauncher
 
         private void DetailWeb_Click(object sender, RoutedEventArgs e)
         {
+            if (_detailHit?.Source == "curseforge")
+            {
+                var web = _detailProject?.WebUrl ?? _detailHit.WebUrl;
+                if (web == null && _detailHit.Slug != null) web = "https://www.curseforge.com/minecraft/mc-mods/" + _detailHit.Slug;
+                if (web != null) OpenUrl(web);
+                return;
+            }
             var slug = _detailProject?.Slug ?? _detailHit?.Slug ?? _detailHit?.ProjectId;
             if (slug != null) OpenUrl("https://modrinth.com/mod/" + slug);
         }
+
+        private void CfKeyGoSettings_Click(object sender, RoutedEventArgs e)
+        {
+            NavSettings.IsChecked = true;
+            CfKeyBox.Focus();
+        }
+
+        private void CfKeyWeb_Click(object sender, RoutedEventArgs e) => OpenUrl("https://console.curseforge.com/");
 
         // ------------------------------------------------------------- mise à jour du launcher
 

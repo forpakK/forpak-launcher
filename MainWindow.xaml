@@ -41,6 +41,41 @@
             </Setter>
         </Style>
 
+        <!-- Sous-menu (Modrinth / CurseForge) -->
+        <Style x:Key="SubNav" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="FontFamily" Value="{StaticResource MainFont}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="b" Background="Transparent" CornerRadius="8" Padding="10,6">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" VerticalAlignment="Center"/>
+                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#0E1A26"/>
+                                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                                <Setter TargetName="b" Property="Background" Value="#0F2628"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Carte en verre -->
         <Style x:Key="Glass" TargetType="Border">
             <Setter Property="Background" Value="#D9091222"/>
@@ -275,9 +310,15 @@
                         <RadioButton x:Name="NavMods" Style="{StaticResource SideNav}" GroupName="nav" Checked="Nav_Checked">
                             <StackPanel>
                                 <TextBlock Text="Mods" FontSize="13" FontWeight="SemiBold"/>
-                                <TextBlock Text="Modrinth &amp; mods installés" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
+                                <TextBlock Text="Modrinth &amp; CurseForge" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
+                        <StackPanel x:Name="SourcePanel" Margin="16,0,0,8">
+                            <RadioButton x:Name="SrcModrinth" Style="{StaticResource SubNav}" GroupName="src" Content="Modrinth"
+                                         Tag="#1BD96A" IsChecked="True" Checked="Source_Checked"/>
+                            <RadioButton x:Name="SrcCurseForge" Style="{StaticResource SubNav}" GroupName="src" Content="CurseForge"
+                                         Tag="#F16436" Checked="Source_Checked"/>
+                        </StackPanel>
                         <RadioButton x:Name="NavSettings" Style="{StaticResource SideNav}" GroupName="nav" Checked="Nav_Checked">
                             <StackPanel>
                                 <TextBlock Text="Paramètres" FontSize="13" FontWeight="SemiBold"/>
@@ -388,7 +429,7 @@
                                 <Border Background="#263EE6A8" CornerRadius="6" Padding="8,3" Margin="12,4,0,0" VerticalAlignment="Center">
                                     <TextBlock x:Name="ModsVersionText" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
                                 </Border>
-                                <TextBlock Text="via Modrinth" FontSize="12" Foreground="{StaticResource Muted}"
+                                <TextBlock x:Name="ModsSourceText" Text="via Modrinth" FontSize="12" Foreground="{StaticResource Muted}"
                                            VerticalAlignment="Center" Margin="10,4,0,0"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -545,8 +586,17 @@
                                 </Grid>
                             </Border>
 
-                            <TextBlock x:Name="ModsEmptyText" Foreground="{StaticResource Muted}" FontSize="13"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460">
+                                <TextBlock x:Name="ModsEmptyText" Foreground="{StaticResource Muted}" FontSize="13"
+                                           TextAlignment="Center" TextWrapping="Wrap" IsHitTestVisible="False"/>
+                                <StackPanel x:Name="CfKeyPanel" Orientation="Horizontal" HorizontalAlignment="Center"
+                                            Margin="0,14,0,0" Visibility="Collapsed">
+                                    <Button Style="{StaticResource PrimaryButton}" Content="Ajouter ma clé" FontSize="13"
+                                            Click="CfKeyGoSettings_Click"/>
+                                    <Button Style="{StaticResource GhostButton}" Content="Obtenir une clé" Margin="8,0,0,0"
+                                            Click="CfKeyWeb_Click"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Grid>
 
                         <!-- Pages -->
@@ -603,8 +653,8 @@
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                     <Button x:Name="DetailInstall" Style="{StaticResource PrimaryButton}" Content="Installer" FontSize="15"
                                             Width="180" Height="46" Click="DetailInstall_Click"/>
-                                    <Button Style="{StaticResource GhostButton}" Content="Voir sur Modrinth" Margin="0,8,0,0"
-                                            Click="DetailWeb_Click"/>
+                                    <Button x:Name="DetailWebButton" Style="{StaticResource GhostButton}" Content="Voir sur Modrinth"
+                                            Margin="0,8,0,0" Click="DetailWeb_Click"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -700,6 +750,20 @@
 
                                 <TextBlock Text="Arguments JVM en plus" FontWeight="SemiBold" Margin="0,18,0,6"/>
                                 <TextBox x:Name="JvmBox" Style="{StaticResource DarkTextBox}"/>
+
+                                <TextBlock Text="CURSEFORGE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Accent}" Margin="0,26,0,0"/>
+                                <TextBlock Text="Clé API CurseForge (gratuite)" FontWeight="SemiBold" Margin="0,12,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="CfKeyBox" Style="{StaticResource DarkTextBox}"/>
+                                    <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Obtenir" Margin="8,0,0,0"
+                                            Click="CfKeyWeb_Click"/>
+                                </Grid>
+                                <TextBlock Text="À créer sur console.curseforge.com. Sans clé, seul Modrinth marche."
+                                           FontSize="11" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Margin="0,46,0,0">

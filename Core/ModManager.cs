@@ -17,12 +17,16 @@ namespace ForpakLauncher.Core
         public string Updated { get; set; }
         public List<string> Tags { get; set; } = new();
         public string InstallLabel { get; set; } = "Installer";
+        public string Source { get; set; } = "modrinth";   // modrinth / curseforge
+        public string WebUrl { get; set; }
+        /// <summary>Clé dans l'index des mods installés.</summary>
+        public string IndexKey => Source == "curseforge" ? "cf:" + ProjectId : ProjectId;
     }
 
     public class ModProject
     {
         public string Id, Slug, Title, Description, Body, IconUrl, Downloads, Followers, Updated, Published, License;
-        public string SourceUrl, IssuesUrl, DiscordUrl, WikiUrl;
+        public string SourceUrl, IssuesUrl, DiscordUrl, WikiUrl, WebUrl;
         public List<string> Tags = new();
         public List<string> Gallery = new();
     }
@@ -164,6 +168,47 @@ namespace ForpakLauncher.Core
             }).ToList();
         }
 
+        public void RegisterInstalled(string key, string mc, string fileName)
+        {
+            var idx = LoadIndex(mc);
+            idx[key] = fileName;
+            SaveIndex(mc, idx);
+        }
+
+        // ----------------------------------------------------------- Sélection Velox
+
+        /// <summary>Mods recommandés (vérifiés en 1.21.1 et 1.21.11, Fabric, côté client).</summary>
+        public static readonly string[] CuratedSlugs =
+        {
+            "iris", "modmenu", "xaeros-minimap", "xaeros-world-map", "appleskin", "zoomify", "jade",
+            "continuity", "3dskinlayers", "not-enough-animations", "entity-model-features", "entitytexturefeatures",
+            "simple-voice-chat", "mouse-tweaks", "sodium-extra", "reeses-sodium-options", "moreculling", "jei"
+        };
+
+        public async Task<List<ModHit>> GetCuratedAsync(string mc)
+        {
+            var ids = "[" + string.Join(",", CuratedSlugs.Select(x => "\"" + x + "\"")) + "]";
+            var arr = JsonNode.Parse(await _http.GetStringAsync($"{Api}/projects?ids={Uri.EscapeDataString(ids)}")).AsArray();
+            var order = CuratedSlugs.ToList();
+            return arr
+                .Where(j => (j["game_versions"] as JsonArray)?.Any(v => (string)v == mc) == true)
+                .Select(j => new ModHit
+                {
+                    ProjectId = (string)j["id"],
+                    Slug = (string)j["slug"],
+                    Title = (string)j["title"],
+                    Description = (string)j["description"],
+                    IconUrl = string.IsNullOrEmpty((string)j["icon_url"]) ? null : (string)j["icon_url"],
+                    Downloads = FormatDownloads((long?)j["downloads"] ?? 0),
+                    Follows = FormatDownloads((long?)j["followers"] ?? 0),
+                    Info = "★ Sélection Velox",
+                    Tags = (j["categories"] as JsonArray ?? new JsonArray())
+                        .Select(c => CategoryName((string)c)).Where(c => c != null).Take(3).ToList()
+                })
+                .OrderBy(h => order.IndexOf(h.Slug) < 0 ? 999 : order.IndexOf(h.Slug))
+                .ToList();
+        }
+
         public bool IsInstalled(string projectId, string mc) =>
             LoadIndex(mc).TryGetValue(projectId, out var f) && File.Exists(Path.Combine(ModsDir(mc), f));
 
@@ -187,7 +232,7 @@ namespace ForpakLauncher.Core
             _ => char.ToUpper(slug[0]) + slug.Substring(1)
         };
 
-        private static string Ago(string iso)
+        public static string Ago(string iso)
         {
             if (!DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var d)) return "";
             var span = DateTime.UtcNow - d.ToUniversalTime();
@@ -353,7 +398,7 @@ namespace ForpakLauncher.Core
             try { File.Delete(Path.Combine(ModsDir(mc), ".forpakclient-version")); } catch { }
         }
 
-        private static string FormatDownloads(long n) =>
+        public static string FormatDownloads(long n) =>
             n >= 1_000_000 ? $"{n / 1_000_000.0:0.#} M" : n >= 1000 ? $"{n / 1000.0:0.#} k" : n.ToString();
     }
 }
