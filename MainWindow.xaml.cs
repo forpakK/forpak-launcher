@@ -732,7 +732,7 @@ namespace ForpakLauncher
             }
             catch (Exception ex)
             {
-                ModsEmptyText.Text = "Modrinth ne répond pas : " + ex.Message;
+                ModsEmptyText.Text = (IsCf ? "CurseForge" : "Modrinth") + " ne répond pas : " + ex.Message;
             }
         }
 

@@ -46,10 +46,14 @@ namespace ForpakLauncher.Core
             req.Headers.TryAddWithoutValidation("x-api-key", EffectiveKey);
             req.Headers.Add("Accept", "application/json");
             var res = await _http.SendAsync(req);
-            if ((int)res.StatusCode == 403 || (int)res.StatusCode == 401)
-                throw new Exception("Clé API CurseForge refusée. Vérifie-la dans les paramètres.");
-            res.EnsureSuccessStatusCode();
-            return JsonNode.Parse(await res.Content.ReadAsStringAsync());
+            var text = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+            {
+                var detail = text.Length > 160 ? text.Substring(0, 160) : text;
+                Log.Write($"CurseForge {(int)res.StatusCode} sur {path} : {text}");
+                throw new CurseForgeException((int)res.StatusCode, detail);
+            }
+            return JsonNode.Parse(text);
         }
 
         // sort : relevance / downloads / follows / newest / updated (mêmes noms que Modrinth)
@@ -67,9 +71,19 @@ namespace ForpakLauncher.Core
         {
             var url = $"/mods/search?gameId={MinecraftGameId}&classId={ModsClassId}&gameVersion={mc}" +
                       $"&modLoaderType={FabricLoader}&sortField={SortField(sort)}&sortOrder=desc" +
-                      $"&index={offset}&pageSize={ModManager.PageSize}&searchFilter={Uri.EscapeDataString(query ?? "")}" +
+                      $"&index={offset}&pageSize={ModManager.PageSize}" +
+                      (string.IsNullOrWhiteSpace(query) ? "" : $"&searchFilter={Uri.EscapeDataString(query.Trim())}") +
                       (string.IsNullOrEmpty(categoryId) ? "" : $"&categoryId={categoryId}");
-            var json = await GetAsync(url);
+            JsonNode json;
+            try { json = await GetAsync(url); }
+            catch (CurseForgeException ex) when (ex.Status == 403 || ex.Status == 400)
+            {
+                // Deuxième essai avec le strict minimum (certaines clés n'acceptent pas tous les filtres)
+                var simple = $"/mods/search?gameId={MinecraftGameId}&classId={ModsClassId}&gameVersion={mc}" +
+                             $"&modLoaderType={FabricLoader}&index={offset}&pageSize={ModManager.PageSize}" +
+                             (string.IsNullOrWhiteSpace(query) ? "" : $"&searchFilter={Uri.EscapeDataString(query.Trim())}");
+                json = await GetAsync(simple);
+            }
             var hits = json["data"].AsArray().Select(ToHit).ToList();
             int total = Math.Min(10000, (int?)json["pagination"]?["totalCount"] ?? hits.Count);
             return (hits, total);
@@ -186,6 +200,18 @@ namespace ForpakLauncher.Core
                         catch (Exception ex) { Log.Write("Dépendance CurseForge ignorée : " + ex.Message); }
                     }
             return fileName;
+        }
+    }
+
+    public class CurseForgeException : Exception
+    {
+        public int Status { get; }
+        public CurseForgeException(int status, string detail)
+            : base(status == 401 || status == 403
+                ? $"CurseForge refuse la clé (erreur {status}). {detail}"
+                : $"Erreur CurseForge {status}. {detail}")
+        {
+            Status = status;
         }
     }
 }
