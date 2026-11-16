@@ -40,20 +40,42 @@ namespace ForpakLauncher.Core
 
         public bool HasKey => !string.IsNullOrWhiteSpace(EffectiveKey);
 
+        // CurseForge refuse parfois (403) quand les demandes arrivent trop vite :
+        // on les envoie une par une, espacées, et on réessaie après une pause.
+        private static readonly SemaphoreSlim Gate = new(1, 1);
+        private static DateTime _last = DateTime.MinValue;
+
         private async Task<JsonNode> GetAsync(string path)
         {
-            var req = new HttpRequestMessage(HttpMethod.Get, Api + path);
-            req.Headers.TryAddWithoutValidation("x-api-key", EffectiveKey);
-            req.Headers.Add("Accept", "application/json");
-            var res = await _http.SendAsync(req);
-            var text = await res.Content.ReadAsStringAsync();
-            if (!res.IsSuccessStatusCode)
+            int[] waits = { 0, 800, 1600, 3000 };
+            CurseForgeException last = null;
+            foreach (var wait in waits)
             {
-                var detail = text.Length > 160 ? text.Substring(0, 160) : text;
-                Log.Write($"CurseForge {(int)res.StatusCode} sur {path} : {text}");
-                throw new CurseForgeException((int)res.StatusCode, detail);
+                if (wait > 0) await Task.Delay(wait);
+                await Gate.WaitAsync();
+                try
+                {
+                    var since = DateTime.UtcNow - _last;
+                    if (since < TimeSpan.FromMilliseconds(350)) await Task.Delay(TimeSpan.FromMilliseconds(350) - since);
+
+                    var req = new HttpRequestMessage(HttpMethod.Get, Api + path);
+                    req.Headers.TryAddWithoutValidation("x-api-key", EffectiveKey);
+                    req.Headers.Add("Accept", "application/json");
+                    var res = await _http.SendAsync(req);
+                    _last = DateTime.UtcNow;
+                    var text = await res.Content.ReadAsStringAsync();
+                    if (res.IsSuccessStatusCode) return JsonNode.Parse(text);
+
+                    var detail = text.Length > 160 ? text.Substring(0, 160) : text;
+                    Log.Write($"CurseForge {(int)res.StatusCode} sur {path} : {detail}");
+                    last = new CurseForgeException((int)res.StatusCode, detail);
+                    // Seuls 403 / 429 / 5xx valent la peine de réessayer
+                    int code = (int)res.StatusCode;
+                    if (code != 403 && code != 429 && code < 500) break;
+                }
+                finally { Gate.Release(); }
             }
-            return JsonNode.Parse(text);
+            throw last ?? new CurseForgeException(0, "pas de réponse");
         }
 
         // sort : relevance / downloads / follows / newest / updated (mêmes noms que Modrinth)
@@ -74,16 +96,7 @@ namespace ForpakLauncher.Core
                       $"&index={offset}&pageSize={ModManager.PageSize}" +
                       (string.IsNullOrWhiteSpace(query) ? "" : $"&searchFilter={Uri.EscapeDataString(query.Trim())}") +
                       (string.IsNullOrEmpty(categoryId) ? "" : $"&categoryId={categoryId}");
-            JsonNode json;
-            try { json = await GetAsync(url); }
-            catch (CurseForgeException ex) when (ex.Status == 403 || ex.Status == 400)
-            {
-                // Deuxième essai avec le strict minimum (certaines clés n'acceptent pas tous les filtres)
-                var simple = $"/mods/search?gameId={MinecraftGameId}&classId={ModsClassId}&gameVersion={mc}" +
-                             $"&modLoaderType={FabricLoader}&index={offset}&pageSize={ModManager.PageSize}" +
-                             (string.IsNullOrWhiteSpace(query) ? "" : $"&searchFilter={Uri.EscapeDataString(query.Trim())}");
-                json = await GetAsync(simple);
-            }
+            var json = await GetAsync(url);
             var hits = json["data"].AsArray().Select(ToHit).ToList();
             int total = Math.Min(10000, (int?)json["pagination"]?["totalCount"] ?? hits.Count);
             return (hits, total);

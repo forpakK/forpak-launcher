@@ -1,1 +1,1 @@
-Recherche CurseForge plus fiable et vrais messages d'erreur.
+CurseForge : plus de refus aléatoires (demandes espacées + nouvel essai automatique).

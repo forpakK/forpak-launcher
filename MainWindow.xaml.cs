@@ -644,15 +644,16 @@ namespace ForpakLauncher
                 var rb = new RadioButton
                 {
                     Content = name, Tag = id, GroupName = "modcat",
-                    Style = (Style)FindResource("Pill"), IsChecked = id == _modCategory
+                    Style = (Style)FindResource("Pill")
                 };
+                CategoryChips.Children.Add(rb);
+                rb.IsChecked = id == _modCategory;   // avant l'événement : pas de chargement en double
                 rb.Checked += async (s2, _) =>
                 {
                     _modCategory = (string)((RadioButton)s2).Tag;
                     _modPage = 0;
                     await LoadModsAsync();
                 };
-                CategoryChips.Children.Add(rb);
             }
         }
 
@@ -684,10 +685,13 @@ namespace ForpakLauncher
             if (_modsLoadedFor != ModsMc + _modSource) { _modPage = 0; await LoadModsAsync(); }
         }
 
+        private int _loadId;
+
         private async Task LoadModsAsync()
         {
             var mc = ModsMc;
             if (mc == null) return;
+            int myLoad = ++_loadId;   // si une autre recherche part entre-temps, celle-ci est ignorée
             ModsEmptyText.Text = "Chargement...";
             CfKeyPanel.Visibility = Visibility.Collapsed;
             ModResults.ItemsSource = null;
@@ -717,6 +721,7 @@ namespace ForpakLauncher
                     var cat = _modCategory == Curated ? "" : _modCategory;
                     (hits, total) = await _mods.SearchAsync(_modQuery, mc, _modSort, cat, _modPage * ModManager.PageSize);
                 }
+                if (myLoad != _loadId) return;
                 foreach (var h in hits)
                     if (_mods.IsInstalled(h.IndexKey, mc)) h.InstallLabel = "Installé ✓";
                 _modTotal = total;
