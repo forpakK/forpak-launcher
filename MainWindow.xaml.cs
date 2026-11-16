@@ -136,6 +136,20 @@ namespace ForpakLauncher
             Scroll(Layer3Brush, 90);
             Scroll(Layer4Brush, 50);
 
+            // Aurores : elles ondulent dans des sens opposés et "respirent"
+            Scroll(Aurora1Brush, 260);
+            Scroll(Aurora2Brush, 380, reverse: true);
+            Aurora1Rect.BeginAnimation(OpacityProperty, Slow(new DoubleAnimation(0.55, 1, TimeSpan.FromSeconds(4.5))
+            {
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            }));
+            Aurora2Rect.BeginAnimation(OpacityProperty, Slow(new DoubleAnimation(0.9, 0.35, TimeSpan.FromSeconds(6.5))
+            {
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            }));
+
             // Étoiles qui scintillent
             StarsRect.BeginAnimation(OpacityProperty, Slow(new DoubleAnimation(0.55, 1, TimeSpan.FromSeconds(2.6))
             { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }));
@@ -147,27 +161,37 @@ namespace ForpakLauncher
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
             }));
 
-            // Particules bleues qui montent
+            // Neige (pixel art) : les gros flocons tombent plus vite, comme s'ils étaient plus proches
             Particles.Children.Clear();
             double w = Math.Max(800, ActualWidth), h = Math.Max(500, ActualHeight);
-            for (int i = 0; i < 26; i++)
+            for (int i = 0; i < 70; i++)
             {
-                double size = _rng.Next(2, 5);
-                var r = new System.Windows.Shapes.Rectangle
+                int size = _rng.Next(10) < 6 ? 2 : _rng.Next(10) < 7 ? 3 : 4;
+                var flake = new System.Windows.Shapes.Rectangle
                 {
                     Width = size, Height = size,
-                    Fill = new SolidColorBrush(i % 3 == 0 ? Color.FromRgb(120, 200, 255) : Color.FromRgb(45, 123, 255)),
-                    Opacity = 0.25 + _rng.NextDouble() * 0.5
+                    Fill = new SolidColorBrush(Color.FromRgb(235, 243, 255)),
+                    Opacity = 0.35 + size * 0.15 + _rng.NextDouble() * 0.15
                 };
-                Canvas.SetLeft(r, _rng.NextDouble() * w);
-                Particles.Children.Add(r);
-                var dur = TimeSpan.FromSeconds(14 + _rng.NextDouble() * 16);
-                var up = Slow(new DoubleAnimation(h + 10, -20, dur)
+                double x = _rng.NextDouble() * w;
+                Canvas.SetLeft(flake, x);
+                Particles.Children.Add(flake);
+
+                var fall = TimeSpan.FromSeconds((size == 2 ? 22 : size == 3 ? 15 : 10) + _rng.NextDouble() * 6);
+                flake.BeginAnimation(Canvas.TopProperty, Slow(new DoubleAnimation(-10, h + 10, fall)
                 {
                     RepeatBehavior = RepeatBehavior.Forever,
-                    BeginTime = TimeSpan.FromSeconds(-_rng.NextDouble() * dur.TotalSeconds)
-                });
-                r.BeginAnimation(Canvas.TopProperty, up);
+                    BeginTime = TimeSpan.FromSeconds(-_rng.NextDouble() * fall.TotalSeconds)
+                }));
+                // Balancement gauche-droite
+                var sway = TimeSpan.FromSeconds(2.5 + _rng.NextDouble() * 3);
+                double amp = 6 + _rng.NextDouble() * 18;
+                flake.BeginAnimation(Canvas.LeftProperty, Slow(new DoubleAnimation(x - amp, x + amp, sway)
+                {
+                    AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever,
+                    BeginTime = TimeSpan.FromSeconds(-_rng.NextDouble() * sway.TotalSeconds),
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                }));
             }
         }
 
@@ -175,18 +199,25 @@ namespace ForpakLauncher
         {
             if (!_bgRunning) return;
             _bgRunning = false;
-            foreach (var b in new[] { StarsBrush, Layer1Brush, Layer2Brush, Layer3Brush, Layer4Brush })
+            foreach (var b in new[] { StarsBrush, Aurora1Brush, Aurora2Brush, Layer1Brush, Layer2Brush, Layer3Brush, Layer4Brush })
                 b.BeginAnimation(TileBrush.ViewportProperty, null);
+            Aurora1Rect.BeginAnimation(OpacityProperty, null);
+            Aurora2Rect.BeginAnimation(OpacityProperty, null);
             StarsRect.BeginAnimation(OpacityProperty, null);
             HeroFloat.BeginAnimation(TranslateTransform.YProperty, null);
-            foreach (UIElement el in Particles.Children) el.BeginAnimation(Canvas.TopProperty, null);
+            foreach (UIElement el in Particles.Children)
+            {
+                el.BeginAnimation(Canvas.TopProperty, null);
+                el.BeginAnimation(Canvas.LeftProperty, null);
+            }
             Particles.Children.Clear();
         }
 
-        private static void Scroll(ImageBrush brush, double seconds)
+        private static void Scroll(ImageBrush brush, double seconds, bool reverse = false)
         {
-            var anim = new RectAnimation(new Rect(0, 0, 1920, 540), new Rect(-1920, 0, 1920, 540),
-                TimeSpan.FromSeconds(seconds)) { RepeatBehavior = RepeatBehavior.Forever };
+            var from = new Rect(reverse ? -1920 : 0, 0, 1920, 540);
+            var to = new Rect(reverse ? 0 : -1920, 0, 1920, 540);
+            var anim = new RectAnimation(from, to, TimeSpan.FromSeconds(seconds)) { RepeatBehavior = RepeatBehavior.Forever };
             brush.BeginAnimation(TileBrush.ViewportProperty, Slow(anim));
         }
 

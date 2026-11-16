@@ -122,6 +122,19 @@
                                     TileMode="Tile" ViewportUnits="Absolute" Viewport="0,0,1920,540" Stretch="Fill"/>
                     </Rectangle.Fill>
                 </Rectangle>
+                <!-- Aurores boréales -->
+                <Rectangle x:Name="Aurora2Rect" Height="540" VerticalAlignment="Top" Opacity="0.8">
+                    <Rectangle.Fill>
+                        <ImageBrush x:Name="Aurora2Brush" ImageSource="pack://application:,,,/Assets/aurora2.png"
+                                    TileMode="Tile" ViewportUnits="Absolute" Viewport="0,0,1920,540" Stretch="Fill"/>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Rectangle x:Name="Aurora1Rect" Height="540" VerticalAlignment="Top">
+                    <Rectangle.Fill>
+                        <ImageBrush x:Name="Aurora1Brush" ImageSource="pack://application:,,,/Assets/aurora1.png"
+                                    TileMode="Tile" ViewportUnits="Absolute" Viewport="0,0,1920,540" Stretch="Fill"/>
+                    </Rectangle.Fill>
+                </Rectangle>
                 <Image x:Name="Moon" Source="pack://application:,,,/Assets/moon.png" Width="200" Height="200"
                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,30,120,0"/>
                 <Rectangle Height="540" VerticalAlignment="Bottom">
@@ -142,13 +155,13 @@
                                     TileMode="Tile" ViewportUnits="Absolute" Viewport="0,0,1920,540" Stretch="Fill"/>
                     </Rectangle.Fill>
                 </Rectangle>
-                <Canvas x:Name="Particles"/>
                 <Rectangle Height="540" VerticalAlignment="Bottom">
                     <Rectangle.Fill>
                         <ImageBrush x:Name="Layer4Brush" ImageSource="pack://application:,,,/Assets/layer4.png"
                                     TileMode="Tile" ViewportUnits="Absolute" Viewport="0,0,1920,540" Stretch="Fill"/>
                     </Rectangle.Fill>
                 </Rectangle>
+                <Canvas x:Name="Particles"/>
                 <!-- Assombrit le centre pour que le texte reste lisible -->
                 <Rectangle>
                     <Rectangle.Fill>

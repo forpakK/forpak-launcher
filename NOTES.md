@@ -1,1 +1,1 @@
-Forpak devient **Velox Client** : nouveau logo, barre latérale, lancement au centre et fond animé. Tes réglages, ton compte et tes mods sont gardés.
+Aurores boréales et neige sur le fond animé (un clin d'œil à Forpak Client), sapins enneigés. Le fond se met en pause pendant que tu joues.
