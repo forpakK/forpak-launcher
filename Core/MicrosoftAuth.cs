@@ -11,6 +11,16 @@ namespace ForpakLauncher.Core
         public string AccessToken;
         public string Xuid = "0";
         public string RefreshToken;
+        /// <summary>Le jeton Minecraft expire (≈ 24 h).</summary>
+        public DateTime ExpiresAt = DateTime.MinValue;
+        public bool TokenValid(TimeSpan margin) =>
+            !string.IsNullOrEmpty(AccessToken) && DateTime.UtcNow + margin < ExpiresAt;
+    }
+
+    /// <summary>La session Microsoft n'est plus valable : il faut se reconnecter.</summary>
+    public class SessionExpiredException : Exception
+    {
+        public SessionExpiredException() : base("Session expirée, reconnecte-toi.") { }
     }
 
     public class DeviceCodeInfo
@@ -124,9 +134,15 @@ namespace ForpakLauncher.Core
             };
             if (_live) form["redirect_uri"] = LiveRedirect;
             var res = await _http.PostAsync(_tokenUrl, new FormUrlEncodedContent(form));
-            var json = JsonNode.Parse(await res.Content.ReadAsStringAsync());
+            var body = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
-                throw new Exception("Session expirée, reconnecte-toi.");
+            {
+                // invalid_grant = le jeton n'est vraiment plus bon. Sinon (serveur en panne...) on réessaiera plus tard.
+                if (body.Contains("invalid_grant") || body.Contains("interaction_required"))
+                    throw new SessionExpiredException();
+                throw new Exception($"Microsoft ne répond pas ({(int)res.StatusCode}), réessaie dans un instant.");
+            }
+            var json = JsonNode.Parse(body);
             return await FinishAsync((string)json["access_token"], (string)json["refresh_token"] ?? refreshToken);
         }
 
@@ -183,7 +199,9 @@ namespace ForpakLauncher.Core
                     throw new Exception("Ton Client ID Azure n'est pas encore autorisé par Mojang (voir README, étape « demande d'accès »).");
                 throw new Exception("Erreur Minecraft : " + mcBody);
             }
-            var mcToken = (string)JsonNode.Parse(mcBody)["access_token"];
+            var mcJson = JsonNode.Parse(mcBody);
+            var mcToken = (string)mcJson["access_token"];
+            var mcExpires = DateTime.UtcNow.AddSeconds((int?)mcJson["expires_in"] ?? 86400);
 
             // 4) Profil (vérifie que le jeu est acheté)
             var req = new HttpRequestMessage(HttpMethod.Get, "https://api.minecraftservices.com/minecraft/profile");
@@ -199,6 +217,7 @@ namespace ForpakLauncher.Core
                 Name = (string)prof["name"],
                 Uuid = (string)prof["id"],
                 AccessToken = mcToken,
+                ExpiresAt = mcExpires,
                 Xuid = (string)xsts["DisplayClaims"]?["xui"]?[0]?["xid"] ?? "0",
                 RefreshToken = refreshToken
             };

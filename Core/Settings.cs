@@ -47,6 +47,9 @@ namespace ForpakLauncher.Core
         public string AccountName { get; set; } = "";
         public string AccountUuid { get; set; } = "";
         public string EncryptedRefreshToken { get; set; } = "";
+        public string EncryptedMcToken { get; set; } = "";
+        public DateTime McTokenExpiresAt { get; set; } = DateTime.MinValue;
+        public string AccountXuid { get; set; } = "0";
 
         public static Settings Load()
         {
@@ -66,23 +69,51 @@ namespace ForpakLauncher.Core
                 JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        public string GetRefreshToken()
+        public string GetRefreshToken() => Unprotect(EncryptedRefreshToken);
+        public void SetRefreshToken(string token) => EncryptedRefreshToken = Protect(token);
+
+        /// <summary>Compte complet gardé en mémoire (chiffré) : pas besoin de se reconnecter à chaque lancement.</summary>
+        public McAccount LoadCachedAccount()
         {
-            if (string.IsNullOrEmpty(EncryptedRefreshToken)) return null;
+            if (string.IsNullOrEmpty(AccountName) || string.IsNullOrEmpty(AccountUuid)) return null;
+            return new McAccount
+            {
+                Name = AccountName,
+                Uuid = AccountUuid,
+                Xuid = AccountXuid ?? "0",
+                AccessToken = Unprotect(EncryptedMcToken),
+                ExpiresAt = McTokenExpiresAt,
+                RefreshToken = GetRefreshToken()
+            };
+        }
+
+        public void SaveAccount(McAccount a)
+        {
+            AccountName = a?.Name ?? "";
+            AccountUuid = a?.Uuid ?? "";
+            AccountXuid = a?.Xuid ?? "0";
+            EncryptedMcToken = Protect(a?.AccessToken);
+            McTokenExpiresAt = a?.ExpiresAt ?? DateTime.MinValue;
+            SetRefreshToken(a?.RefreshToken);
+            Save();
+        }
+
+        private static string Protect(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            var data = ProtectedData.Protect(Encoding.UTF8.GetBytes(text), null, DataProtectionScope.CurrentUser);
+            return Convert.ToBase64String(data);
+        }
+
+        private static string Unprotect(string b64)
+        {
+            if (string.IsNullOrEmpty(b64)) return null;
             try
             {
-                var data = ProtectedData.Unprotect(Convert.FromBase64String(EncryptedRefreshToken), null,
-                    DataProtectionScope.CurrentUser);
+                var data = ProtectedData.Unprotect(Convert.FromBase64String(b64), null, DataProtectionScope.CurrentUser);
                 return Encoding.UTF8.GetString(data);
             }
             catch { return null; }
-        }
-
-        public void SetRefreshToken(string token)
-        {
-            if (string.IsNullOrEmpty(token)) { EncryptedRefreshToken = ""; return; }
-            var data = ProtectedData.Protect(Encoding.UTF8.GetBytes(token), null, DataProtectionScope.CurrentUser);
-            EncryptedRefreshToken = Convert.ToBase64String(data);
         }
     }
 

@@ -97,23 +97,11 @@ namespace ForpakLauncher
                 NewsText.Text = notes.Trim();
             }
 
-            // Compte enregistré
-            var refresh = _settings.GetRefreshToken();
-            if (refresh != null)
-            {
-                SetAccountUi(_settings.AccountName, _settings.AccountUuid, "Reconnexion...");
-                try
-                {
-                    _account = await new MicrosoftAuth(_http, _settings.ClientId).RefreshAsync(refresh);
-                    SaveAccount();
-                }
-                catch (Exception ex)
-                {
-                    _account = null;
-                    StatusText.Text = ex.Message;
-                }
-            }
+            // Compte enregistré : on reste connecté
+            _account = _settings.LoadCachedAccount();
             UpdateAccountUi();
+            if (_account != null && !_account.TokenValid(TimeSpan.FromHours(2)) && _account.RefreshToken != null)
+                await EnsureFreshTokenAsync(required: false);
         }
 
         private void RefreshVersionList()
@@ -347,9 +335,7 @@ namespace ForpakLauncher
                 if (r == MessageBoxResult.Yes)
                 {
                     _account = null;
-                    _settings.SetRefreshToken(null);
-                    _settings.AccountName = _settings.AccountUuid = "";
-                    _settings.Save();
+                    _settings.SaveAccount(null);
                     UpdateAccountUi();
                 }
                 return;
@@ -384,12 +370,42 @@ namespace ForpakLauncher
             }
         }
 
-        private void SaveAccount()
+        private void SaveAccount() => _settings.SaveAccount(_account);
+
+        /// <summary>
+        /// Rafraîchit le jeton si besoin. Une panne réseau ne déconnecte pas : on garde le compte.
+        /// Renvoie false seulement si on ne peut vraiment pas jouer (jeton expiré et impossible à renouveler).
+        /// </summary>
+        private async Task<bool> EnsureFreshTokenAsync(bool required)
         {
-            _settings.AccountName = _account.Name;
-            _settings.AccountUuid = _account.Uuid;
-            _settings.SetRefreshToken(_account.RefreshToken);
-            _settings.Save();
+            if (_account == null) return false;
+            if (_account.TokenValid(TimeSpan.FromMinutes(required ? 15 : 120))) return true;
+            if (_account.RefreshToken == null) return _account.TokenValid(TimeSpan.Zero);
+            try
+            {
+                var fresh = await new MicrosoftAuth(_http, _settings.ClientId).RefreshAsync(_account.RefreshToken);
+                _account = fresh;
+                SaveAccount();
+                UpdateAccountUi();
+                return true;
+            }
+            catch (SessionExpiredException ex)
+            {
+                // Vraiment expiré (mot de passe changé, accès retiré...) : il faut se reconnecter
+                _account = null;
+                _settings.SaveAccount(null);
+                UpdateAccountUi();
+                StatusText.Text = ex.Message;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Rafraîchissement du compte : " + ex.Message);
+                if (!required) return true;
+                bool ok = _account.TokenValid(TimeSpan.Zero);
+                if (!ok) StatusText.Text = "Impossible de joindre Microsoft : " + ex.Message;
+                return ok;
+            }
         }
 
         private void UpdateAccountUi()
@@ -433,12 +449,12 @@ namespace ForpakLauncher
 
             try
             {
-                // Rafraîchit le token (il expire au bout de 24h)
-                var refresh = _account.RefreshToken;
-                if (refresh != null)
+                // Jeton Minecraft encore bon ? sinon on le renouvelle
+                if (!await EnsureFreshTokenAsync(required: true))
                 {
-                    try { _account = await new MicrosoftAuth(_http, _settings.ClientId).RefreshAsync(refresh); SaveAccount(); }
-                    catch { /* on garde l'ancien token */ }
+                    if (_account == null) MessageBox.Show("Ta session a expiré, reconnecte-toi.", "Compte",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
                 }
 
                 var ct = CancellationToken.None;
