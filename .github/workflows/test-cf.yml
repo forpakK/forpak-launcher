@@ -21,10 +21,11 @@ jobs:
             code=$(curl -s -o /tmp/out.json -w "%{http_code}" -H "x-api-key: $CF_KEY" -H "Accept: application/json" "https://api.curseforge.com$path")
             echo "RES $code  ${path#/v1/mods/search?gameId=432&classId=6&gameVersion=1.21.11&modLoaderType=4}  $(head -c 60 /tmp/out.json)"
           done
-          for path in "/v1/mods/394468" "/v1/mods/394468/files?gameVersion=1.21.11&modLoaderType=4&pageSize=5" "/v1/mods/394468/description"; do
+          R=$RANDOM$RANDOM
+          for path in "$B&pageSize=7&searchFilter=zq$R" "$B&pageSize=3&searchFilter=velox$R" "/v1/mods/search?gameId=432&classId=6&gameVersion=1.21.11&modLoaderType=4&pageSize=9&searchFilter=a$R" "/v1/mods/394468" "/v1/mods/394468/files?gameVersion=1.21.11&modLoaderType=4&pageSize=5" "/v1/mods/394468/description"; do
             code=$(curl -s -o /tmp/out.json -w "%{http_code}" -H "x-api-key: $CF_KEY" "https://api.curseforge.com$path")
             echo "RES $code  $path  $(head -c 60 /tmp/out.json)"
           done
           echo "--- sans cle :"
           curl -s -o /dev/null -w "%{http_code}  /v1/categories sans cle\n" "https://api.curseforge.com/v1/categories?gameId=432&classId=6"
-# essai 2
+# essai 3
