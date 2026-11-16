@@ -16,9 +16,14 @@ jobs:
           echo "Longueur de la cle : ${#CF_KEY} caracteres (attendu : 60)"
           echo "Commence par \$2a\$10\$ : $([[ "$CF_KEY" == '$2a$10$'* ]] && echo oui || echo non)"
           echo "Espaces/retours a la ligne : $(printf '%s' "$CF_KEY" | tr -d -c ' \n\r\t' | wc -c)"
-          for path in "/v1/games" "/v1/categories?gameId=432&classId=6" "/v1/mods/search?gameId=432&classId=6&pageSize=5" "/v1/mods/search?gameId=432&classId=6&gameVersion=1.21.11&modLoaderType=4&pageSize=5"; do
+          B="/v1/mods/search?gameId=432&classId=6&gameVersion=1.21.11&modLoaderType=4"
+          for path in "$B&pageSize=5" "$B&pageSize=20" "$B&pageSize=5&index=0" "$B&pageSize=5&index=20" "$B&pageSize=5&sortField=2" "$B&pageSize=5&sortField=2&sortOrder=desc" "$B&pageSize=5&sortOrder=desc" "$B&pageSize=5&searchFilter=sodium" "$B&pageSize=5&categoryId=406" "$B&sortField=2&sortOrder=desc&index=0&pageSize=20"; do
             code=$(curl -s -o /tmp/out.json -w "%{http_code}" -H "x-api-key: $CF_KEY" -H "Accept: application/json" "https://api.curseforge.com$path")
-            echo "$code  $path  $(head -c 120 /tmp/out.json)"
+            echo "RES $code  ${path#/v1/mods/search?gameId=432&classId=6&gameVersion=1.21.11&modLoaderType=4}  $(head -c 60 /tmp/out.json)"
+          done
+          for path in "/v1/mods/394468" "/v1/mods/394468/files?gameVersion=1.21.11&modLoaderType=4&pageSize=5" "/v1/mods/394468/description"; do
+            code=$(curl -s -o /tmp/out.json -w "%{http_code}" -H "x-api-key: $CF_KEY" "https://api.curseforge.com$path")
+            echo "RES $code  $path  $(head -c 60 /tmp/out.json)"
           done
           echo "--- sans cle :"
           curl -s -o /dev/null -w "%{http_code}  /v1/categories sans cle\n" "https://api.curseforge.com/v1/categories?gameId=432&classId=6"
