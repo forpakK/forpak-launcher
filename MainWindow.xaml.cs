@@ -559,39 +559,73 @@ namespace ForpakLauncher
             OpenUrl(mods);
         }
 
-        // ------------------------------------------------------------- mods (Modrinth)
+        // ------------------------------------------------------------- mods (pages façon Modrinth)
 
         private string ModsMc => (VersionCombo.SelectedItem as McVersion)?.Id;
+        private string _modSort = "relevance";
+        private string _modCategory = "";
+        private int _modPage;
+        private int _modTotal;
+        private string _modQuery = "";
+        private string _modsLoadedFor;
+        private bool _chipsBuilt;
+        private ModHit _detailHit;
+        private ModProject _detailProject;
+
+        private void BuildCategoryChips()
+        {
+            if (_chipsBuilt) return;
+            _chipsBuilt = true;
+            foreach (var (slug, name) in ModManager.Categories)
+            {
+                var rb = new RadioButton
+                {
+                    Content = name, Tag = slug, GroupName = "modcat",
+                    Style = (Style)FindResource("Pill"), IsChecked = slug == ""
+                };
+                rb.Checked += async (s, _) =>
+                {
+                    _modCategory = (string)((RadioButton)s).Tag;
+                    _modPage = 0;
+                    await LoadModsAsync();
+                };
+                CategoryChips.Children.Add(rb);
+            }
+        }
 
         private async Task OpenModsPageAsync()
         {
             if (ModsMc == null) return;
             if (FabricSwitch.IsChecked != true) FabricSwitch.IsChecked = true; // les mods ont besoin de Fabric
+            BuildCategoryChips();
             ModsVersionText.Text = "Fabric " + ModsMc;
+            ShowBrowse();
             RefreshInstalled();
-            if (ModResults.Items.Count == 0 || (string)ModResults.Tag != ModsMc)
-                await SearchModsAsync(ModSearchBox.Text);
+            if (_modsLoadedFor != ModsMc) { _modPage = 0; await LoadModsAsync(); }
         }
 
-        private async void ModSearch_Click(object sender, RoutedEventArgs e) => await SearchModsAsync(ModSearchBox.Text);
-
-        private async void ModSearch_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter) await SearchModsAsync(ModSearchBox.Text);
-        }
-
-        private async Task SearchModsAsync(string query)
+        private async Task LoadModsAsync()
         {
             var mc = ModsMc;
             if (mc == null) return;
-            ModsEmptyText.Text = "Recherche...";
+            ModsEmptyText.Text = "Chargement...";
             ModResults.ItemsSource = null;
+            PrevPageButton.IsEnabled = NextPageButton.IsEnabled = false;
             try
             {
-                var hits = await _mods.SearchAsync(query, mc);
+                var (hits, total) = await _mods.SearchAsync(_modQuery, mc, _modSort, _modCategory, _modPage * ModManager.PageSize);
+                foreach (var h in hits)
+                    if (_mods.IsInstalled(h.ProjectId, mc)) h.InstallLabel = "Installé ✓";
+                _modTotal = total;
+                _modsLoadedFor = mc;
                 ModResults.ItemsSource = hits;
-                ModResults.Tag = mc;
+                ModScroll.ScrollToTop();
                 ModsEmptyText.Text = hits.Count == 0 ? "Aucun mod trouvé pour " + mc + "." : "";
+
+                int pages = Math.Max(1, (int)Math.Ceiling(total / (double)ModManager.PageSize));
+                PageText.Text = $"Page {_modPage + 1} sur {pages}";
+                PrevPageButton.IsEnabled = _modPage > 0;
+                NextPageButton.IsEnabled = _modPage + 1 < pages;
             }
             catch (Exception ex)
             {
@@ -599,24 +633,83 @@ namespace ForpakLauncher
             }
         }
 
+        private async void ModSearch_Click(object sender, RoutedEventArgs e) => await NewSearchAsync();
+
+        private async void ModSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) await NewSearchAsync();
+        }
+
+        private async Task NewSearchAsync()
+        {
+            _modQuery = ModSearchBox.Text.Trim();
+            _modPage = 0;
+            ModsTabBrowse.IsChecked = true;
+            await LoadModsAsync();
+        }
+
+        private async void Sort_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not ComboBox cb || cb.SelectedItem is not ComboBoxItem item) return;
+            _modSort = (string)item.Tag;
+            if (_modsLoadedFor == null) return;
+            _modSort = (string)item.Tag;
+            _modPage = 0;
+            await LoadModsAsync();
+        }
+
+        private async void PrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_modPage == 0) return;
+            _modPage--;
+            await LoadModsAsync();
+        }
+
+        private async void NextPage_Click(object sender, RoutedEventArgs e)
+        {
+            _modPage++;
+            await LoadModsAsync();
+        }
+
+        private void ModsTab_Checked(object sender, RoutedEventArgs e)
+        {
+            if (InstalledView == null) return; // pendant InitializeComponent
+            bool installed = ModsTabInstalled.IsChecked == true;
+            InstalledView.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+            ModScroll.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            Pager.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            SearchRow.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            CategoryChips.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            ModsEmptyText.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+            if (installed) RefreshInstalled();
+            Animate(installed ? InstalledView : ModScroll);
+        }
+
         private async void InstallMod_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not ModHit hit || ModsMc == null) return;
+            await InstallHitAsync(hit, b);
+        }
+
+        private async Task InstallHitAsync(ModHit hit, Button b)
+        {
+            if (hit.InstallLabel != "Installer") return;
             b.IsEnabled = false;
             b.Content = "...";
             try
             {
                 var mc = ModsMc;
                 await Task.Run(() => _mods.InstallAsync(hit.ProjectId, mc));
-                b.Content = "Installé ✓";
+                hit.InstallLabel = "Installé ✓";
+                b.Content = hit.InstallLabel;
                 RefreshInstalled();
             }
             catch (Exception ex)
             {
                 b.Content = "Installer";
-                b.IsEnabled = true;
                 MessageBox.Show(ex.Message, "Mods", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+            finally { b.IsEnabled = true; }
         }
 
         private void RemoveMod_Click(object sender, RoutedEventArgs e)
@@ -624,12 +717,152 @@ namespace ForpakLauncher
             if (sender is not Button b || b.Tag is not InstalledMod mod || ModsMc == null) return;
             try { _mods.Remove(ModsMc, mod); } catch (Exception ex) { MessageBox.Show(ex.Message); }
             RefreshInstalled();
+            _modsLoadedFor = null; // les boutons "Installé" seront recalculés
         }
 
         private void RefreshInstalled()
         {
             if (ModsMc == null) return;
-            InstalledList.ItemsSource = _mods.GetInstalled(ModsMc);
+            var list = _mods.GetInstalled(ModsMc);
+            InstalledList.ItemsSource = list;
+            InstalledCount.Text = list.Count + (list.Count > 1 ? " mods installés" : " mod installé") + " · " + ModsMc;
+            ModsTabInstalled.Content = $"Installés ({list.Count})";
+        }
+
+        // ---- page d'un mod
+
+        private void ShowBrowse()
+        {
+            DetailView.Visibility = Visibility.Collapsed;
+            BrowseView.Visibility = Visibility.Visible;
+        }
+
+        private async void ModCard_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not ModHit hit) return;
+            await OpenProjectAsync(hit);
+        }
+
+        private void DetailBack_Click(object sender, RoutedEventArgs e)
+        {
+            ShowBrowse();
+            Animate(BrowseView);
+        }
+
+        private async Task OpenProjectAsync(ModHit hit)
+        {
+            _detailHit = hit;
+            _detailProject = null;
+            BrowseView.Visibility = Visibility.Collapsed;
+            DetailView.Visibility = Visibility.Visible;
+            Animate(DetailView);
+
+            // Ce qu'on connaît déjà (affichage immédiat)
+            DetailTitle.Text = hit.Title;
+            DetailDesc.Text = hit.Description;
+            DetailIcon.Source = hit.IconUrl != null ? new BitmapImage(new Uri(hit.IconUrl)) : null;
+            DetailInstall.Content = hit.InstallLabel;
+            DetailStats.Children.Clear();
+            DetailGallery.Children.Clear();
+            DetailInfo.Children.Clear();
+            DetailLinks.Children.Clear();
+            DetailVersions.ItemsSource = null;
+            DetailBody.Children.Clear();
+            DetailBody.Children.Add(new TextBlock { Text = "Chargement de la description...", Foreground = (Brush)FindResource("Muted") });
+            DetailScroll.ScrollToTop();
+
+            try
+            {
+                var mc = ModsMc;
+                var projectTask = _mods.GetProjectAsync(hit.ProjectId);
+                var versionsTask = _mods.GetVersionsAsync(hit.ProjectId, mc);
+                var p = await projectTask;
+                if (_detailHit != hit) return; // l'utilisateur a changé de mod entre-temps
+                _detailProject = p;
+
+                AddStat("", p.Downloads + " téléchargements");
+                AddStat("", p.Followers + " abonnés");
+                AddStat("", "Mis à jour " + p.Updated);
+
+                foreach (var url in p.Gallery)
+                {
+                    var img = new Image { Source = new BitmapImage(new Uri(url)), Stretch = Stretch.UniformToFill };
+                    DetailGallery.Children.Add(new Border
+                    {
+                        Width = 220, Height = 124, CornerRadius = new CornerRadius(10), Margin = new Thickness(0, 0, 10, 10),
+                        Background = (Brush)FindResource("Stroke"), ClipToBounds = true, Child = img
+                    });
+                }
+
+                Markdown.Render(DetailBody, p.Body);
+
+                AddInfo("Auteur", hit.Author);
+                AddInfo("Licence", p.License);
+                AddInfo("Publié", p.Published);
+                AddInfo("Catégories", string.Join(", ", p.Tags));
+                AddLink("Code source", p.SourceUrl);
+                AddLink("Wiki", p.WikiUrl);
+                AddLink("Discord", p.DiscordUrl);
+                AddLink("Signaler un bug", p.IssuesUrl);
+
+                var versions = await versionsTask;
+                if (_detailHit == hit) DetailVersions.ItemsSource = versions;
+            }
+            catch (Exception ex)
+            {
+                DetailBody.Children.Clear();
+                DetailBody.Children.Add(new TextBlock { Text = "Impossible de charger ce mod : " + ex.Message,
+                    Foreground = (Brush)FindResource("Muted"), TextWrapping = TextWrapping.Wrap });
+            }
+        }
+
+        private void AddStat(string icon, string text)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 16, 0) };
+            sp.Children.Add(new TextBlock
+            {
+                Text = icon, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 12,
+                Foreground = (Brush)FindResource("Accent"), VerticalAlignment = VerticalAlignment.Center
+            });
+            sp.Children.Add(new TextBlock { Text = text, FontSize = 12.5, Margin = new Thickness(6, 0, 0, 0), FontWeight = FontWeights.SemiBold });
+            DetailStats.Children.Add(sp);
+        }
+
+        private void AddInfo(string label, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            var g = new Grid { Margin = new Thickness(0, 0, 0, 7) };
+            g.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = (Brush)FindResource("Muted") });
+            g.Children.Add(new TextBlock
+            {
+                Text = value, FontSize = 12, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Right,
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(80, 0, 0, 0)
+            });
+            DetailInfo.Children.Add(g);
+        }
+
+        private void AddLink(string label, string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return;
+            var b = new Button
+            {
+                Content = label, Style = (Style)FindResource("GhostButton"), Padding = new Thickness(10, 5, 10, 5),
+                Margin = new Thickness(0, 0, 6, 6), FontSize = 11.5, Tag = url
+            };
+            b.Click += (_, _) => OpenUrl(url);
+            DetailLinks.Children.Add(b);
+        }
+
+        private async void DetailInstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (_detailHit == null) return;
+            await InstallHitAsync(_detailHit, DetailInstall);
+        }
+
+        private void DetailWeb_Click(object sender, RoutedEventArgs e)
+        {
+            var slug = _detailProject?.Slug ?? _detailHit?.Slug ?? _detailHit?.ProjectId;
+            if (slug != null) OpenUrl("https://modrinth.com/mod/" + slug);
         }
 
         // ------------------------------------------------------------- mise à jour du launcher

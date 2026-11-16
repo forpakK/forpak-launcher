@@ -170,7 +170,7 @@ public final class Hud {
             boolean jump = mc.options.jumpKey.isPressed();
             int y3 = y2 + S + G;
             Ui.rect(ctx, x, y3, w3, 12, jump ? Ui.ACCENT_BG : Ui.BG);
-            ctx.fill(x + w3 / 2 - 14, y3 + 5, x + w3 / 2 + 14, y3 + 7, jump ? Ui.BLACK : Ui.WHITE);
+            ctx.fill(x + w3 / 2 - 14, y3 + 5, x + w3 / 2 + 14, y3 + 7, Ui.WHITE);
         }
 
         private static void key(DrawContext ctx, TextRenderer tr, KeyBinding kb, int x, int y, int w, int h) {
@@ -178,15 +178,15 @@ public final class Hud {
             Ui.rect(ctx, x, y, w, h, down ? Ui.ACCENT_BG : Ui.BG);
             String t = kb.getBoundKeyLocalizedText().getString().toUpperCase();
             if (t.length() > 3) t = t.substring(0, 3);
-            ctx.drawTextWithShadow(tr, t, x + (w - tr.getWidth(t)) / 2, y + (h - 8) / 2, down ? Ui.BLACK : Ui.WHITE);
+            ctx.drawTextWithShadow(tr, t, x + (w - tr.getWidth(t)) / 2, y + (h - 8) / 2, Ui.WHITE);
         }
 
         private static void mouse(DrawContext ctx, TextRenderer tr, boolean down, String label, int cps,
                                   int x, int y, int w, int h) {
             Ui.rect(ctx, x, y, w, h, down ? Ui.ACCENT_BG : Ui.BG);
-            ctx.drawTextWithShadow(tr, label, x + (w - tr.getWidth(label)) / 2, y + 3, down ? Ui.BLACK : Ui.WHITE);
+            ctx.drawTextWithShadow(tr, label, x + (w - tr.getWidth(label)) / 2, y + 3, Ui.WHITE);
             String c = cps + " CPS";
-            ctx.drawTextWithShadow(tr, c, x + (w - tr.getWidth(c)) / 2, y + 12, down ? Ui.BLACK : Ui.GREY);
+            ctx.drawTextWithShadow(tr, c, x + (w - tr.getWidth(c)) / 2, y + 12, down ? Ui.WHITE : Ui.GREY);
         }
     }
 

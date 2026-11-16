@@ -6,10 +6,35 @@ namespace ForpakLauncher.Core
     public class ModHit
     {
         public string ProjectId { get; set; }
+        public string Slug { get; set; }
         public string Title { get; set; }
+        public string Author { get; set; }
         public string Description { get; set; }
         public string Info { get; set; }
         public string IconUrl { get; set; }
+        public string Downloads { get; set; }
+        public string Follows { get; set; }
+        public string Updated { get; set; }
+        public List<string> Tags { get; set; } = new();
+        public string InstallLabel { get; set; } = "Installer";
+    }
+
+    public class ModProject
+    {
+        public string Id, Slug, Title, Description, Body, IconUrl, Downloads, Followers, Updated, Published, License;
+        public string SourceUrl, IssuesUrl, DiscordUrl, WikiUrl;
+        public List<string> Tags = new();
+        public List<string> Gallery = new();
+    }
+
+    public class ModVersionInfo
+    {
+        public string Name { get; set; }
+        public string Number { get; set; }
+        public string Type { get; set; }
+        public string Date { get; set; }
+        public string Downloads { get; set; }
+        public string GameVersions { get; set; }
     }
 
     public class InstalledMod
@@ -64,20 +89,113 @@ namespace ForpakLauncher.Core
 
         // ----------------------------------------------------------- Modrinth
 
-        public async Task<List<ModHit>> SearchAsync(string query, string mc)
+        public const int PageSize = 20;
+
+        /// <summary>Recherche Modrinth. sort = relevance / downloads / follows / newest / updated.</summary>
+        public async Task<(List<ModHit> hits, int total)> SearchAsync(string query, string mc,
+            string sort = "relevance", string category = null, int offset = 0)
         {
-            var facets = $"[[\"project_type:mod\"],[\"categories:fabric\"],[\"versions:{mc}\"]]";
-            var url = $"{Api}/search?limit=25&index=relevance&query={Uri.EscapeDataString(query ?? "")}" +
-                      $"&facets={Uri.EscapeDataString(facets)}";
+            var facets = $"[[\"project_type:mod\"],[\"categories:fabric\"],[\"versions:{mc}\"]" +
+                         (string.IsNullOrEmpty(category) ? "" : $",[\"categories:{category}\"]") + "]";
+            var url = $"{Api}/search?limit={PageSize}&offset={offset}&index={sort}" +
+                      $"&query={Uri.EscapeDataString(query ?? "")}&facets={Uri.EscapeDataString(facets)}";
             var json = JsonNode.Parse(await _http.GetStringAsync(url));
-            return json["hits"].AsArray().Select(h => new ModHit
+            var hits = json["hits"].AsArray().Select(h => new ModHit
             {
                 ProjectId = (string)h["project_id"],
+                Slug = (string)h["slug"],
                 Title = (string)h["title"],
+                Author = (string)h["author"],
                 Description = (string)h["description"],
                 IconUrl = string.IsNullOrEmpty((string)h["icon_url"]) ? null : (string)h["icon_url"],
-                Info = $"{(string)h["author"]} · {FormatDownloads((long?)h["downloads"] ?? 0)} téléchargements"
+                Downloads = FormatDownloads((long?)h["downloads"] ?? 0),
+                Follows = FormatDownloads((long?)h["follows"] ?? 0),
+                Updated = Ago((string)h["date_modified"]),
+                Info = $"par {(string)h["author"]}",
+                Tags = (h["display_categories"] as JsonArray ?? h["categories"] as JsonArray ?? new JsonArray())
+                    .Select(c => CategoryName((string)c)).Where(c => c != null).Distinct().Take(3).ToList()
             }).ToList();
+            return (hits, (int?)json["total_hits"] ?? hits.Count);
+        }
+
+        public async Task<ModProject> GetProjectAsync(string idOrSlug)
+        {
+            var j = JsonNode.Parse(await _http.GetStringAsync($"{Api}/project/{idOrSlug}"));
+            var p = new ModProject
+            {
+                Id = (string)j["id"],
+                Slug = (string)j["slug"],
+                Title = (string)j["title"],
+                Description = (string)j["description"],
+                Body = (string)j["body"] ?? "",
+                IconUrl = string.IsNullOrEmpty((string)j["icon_url"]) ? null : (string)j["icon_url"],
+                Downloads = FormatDownloads((long?)j["downloads"] ?? 0),
+                Followers = FormatDownloads((long?)j["followers"] ?? 0),
+                Updated = Ago((string)j["updated"]),
+                Published = Ago((string)j["published"]),
+                License = (string)j["license"]?["id"],
+                SourceUrl = (string)j["source_url"],
+                IssuesUrl = (string)j["issues_url"],
+                DiscordUrl = (string)j["discord_url"],
+                WikiUrl = (string)j["wiki_url"]
+            };
+            if (j["categories"] is JsonArray cats)
+                p.Tags = cats.Select(c => CategoryName((string)c)).Where(c => c != null).ToList();
+            if (j["gallery"] is JsonArray gal)
+                p.Gallery = gal.OrderByDescending(g => (bool?)g["featured"] == true)
+                    .Select(g => (string)g["url"]).Where(u => !string.IsNullOrEmpty(u)).Take(4).ToList();
+            return p;
+        }
+
+        public async Task<List<ModVersionInfo>> GetVersionsAsync(string projectId, string mc)
+        {
+            var url = $"{Api}/project/{projectId}/version?loaders={Uri.EscapeDataString("[\"fabric\"]")}" +
+                      $"&game_versions={Uri.EscapeDataString($"[\"{mc}\"]")}";
+            var arr = JsonNode.Parse(await _http.GetStringAsync(url)).AsArray();
+            return arr.Take(8).Select(v => new ModVersionInfo
+            {
+                Name = (string)v["name"],
+                Number = (string)v["version_number"],
+                Type = ((string)v["version_type"]) switch { "beta" => "Bêta", "alpha" => "Alpha", _ => "Stable" },
+                Date = Ago((string)v["date_published"]),
+                Downloads = FormatDownloads((long?)v["downloads"] ?? 0),
+                GameVersions = string.Join(", ", (v["game_versions"] as JsonArray ?? new JsonArray())
+                    .Select(g => (string)g).TakeLast(3))
+            }).ToList();
+        }
+
+        public bool IsInstalled(string projectId, string mc) =>
+            LoadIndex(mc).TryGetValue(projectId, out var f) && File.Exists(Path.Combine(ModsDir(mc), f));
+
+        // Catégories Modrinth -> français
+        public static readonly (string Slug, string Name)[] Categories =
+        {
+            ("", "Tout"), ("optimization", "Optimisation"), ("utility", "Utilitaire"), ("decoration", "Décoration"),
+            ("adventure", "Aventure"), ("technology", "Technologie"), ("magic", "Magie"), ("worldgen", "Monde"),
+            ("equipment", "Équipement"), ("social", "Social"), ("library", "Bibliothèque")
+        };
+
+        private static string CategoryName(string slug) => slug switch
+        {
+            "optimization" => "Optimisation", "utility" => "Utilitaire", "decoration" => "Décoration",
+            "adventure" => "Aventure", "technology" => "Technologie", "magic" => "Magie", "worldgen" => "Monde",
+            "equipment" => "Équipement", "social" => "Social", "library" => "Bibliothèque", "storage" => "Stockage",
+            "food" => "Nourriture", "mobs" => "Créatures", "transportation" => "Transport", "management" => "Gestion",
+            "game-mechanics" => "Mécaniques", "cursed" => "Maudit", "economy" => "Économie", "minigame" => "Mini-jeu",
+            "fabric" or "forge" or "neoforge" or "quilt" or "datapack" => null,
+            null => null,
+            _ => char.ToUpper(slug[0]) + slug.Substring(1)
+        };
+
+        private static string Ago(string iso)
+        {
+            if (!DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var d)) return "";
+            var span = DateTime.UtcNow - d.ToUniversalTime();
+            if (span.TotalDays >= 365) return $"il y a {(int)(span.TotalDays / 365)} an{((int)(span.TotalDays / 365) > 1 ? "s" : "")}";
+            if (span.TotalDays >= 30) return $"il y a {(int)(span.TotalDays / 30)} mois";
+            if (span.TotalDays >= 1) return $"il y a {(int)span.TotalDays} j";
+            if (span.TotalHours >= 1) return $"il y a {(int)span.TotalHours} h";
+            return "à l'instant";
         }
 
         /// <summary>Installe la dernière version d'un mod (+ ses dépendances obligatoires).</summary>

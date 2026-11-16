@@ -9,6 +9,7 @@
     <Window.Resources>
         <!-- Navigation latérale (style Velox Tweaks) -->
         <Style x:Key="SideNav" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource Text}"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -24,11 +25,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="b" Property="Background" Value="#0F1628"/>
+                                <Setter TargetName="b" Property="Background" Value="#0E1A26"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="b" Property="Background" Value="#101B33"/>
-                                <Setter TargetName="b" Property="BorderBrush" Value="#24406F"/>
+                                <Setter TargetName="b" Property="Background" Value="#0F2628"/>
+                                <Setter TargetName="b" Property="BorderBrush" Value="#2A6B5E"/>
                                 <Setter TargetName="bar" Property="Opacity" Value="1"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
@@ -42,8 +43,8 @@
 
         <!-- Carte en verre -->
         <Style x:Key="Glass" TargetType="Border">
-            <Setter Property="Background" Value="#C80B1122"/>
-            <Setter Property="BorderBrush" Value="#3324406F"/>
+            <Setter Property="Background" Value="#D9091222"/>
+            <Setter Property="BorderBrush" Value="#2E3EE6A8"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="Padding" Value="20"/>
@@ -58,13 +59,13 @@
                         <Border x:Name="Bd" CornerRadius="12" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#5AA0FF" Offset="0"/>
-                                    <GradientStop Color="#2D7BFF" Offset="0.5"/>
-                                    <GradientStop Color="#1A56D8" Offset="1"/>
+                                    <GradientStop Color="#2FD39A" Offset="0"/>
+                                    <GradientStop Color="#14A880" Offset="0.5"/>
+                                    <GradientStop Color="#0C86AE" Offset="1"/>
                                 </LinearGradientBrush>
                             </Border.Background>
                             <Border.Effect>
-                                <DropShadowEffect Color="#2D7BFF" BlurRadius="30" ShadowDepth="0" Opacity="0.55"/>
+                                <DropShadowEffect Color="#3EE6A8" BlurRadius="30" ShadowDepth="0" Opacity="0.55"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -77,7 +78,7 @@
                                 </Setter>
                                 <Setter TargetName="Bd" Property="Effect">
                                     <Setter.Value>
-                                        <DropShadowEffect Color="#4F8DFF" BlurRadius="40" ShadowDepth="0" Opacity="0.95"/>
+                                        <DropShadowEffect Color="#5BF0BC" BlurRadius="40" ShadowDepth="0" Opacity="0.95"/>
                                     </Setter.Value>
                                 </Setter>
                             </Trigger>
@@ -90,9 +91,55 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Pastille (onglets, catégories) -->
+        <Style x:Key="Pill" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            <Setter Property="FontFamily" Value="{StaticResource MainFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="b" Background="#E60D1526" BorderBrush="#22304A" BorderThickness="1"
+                                CornerRadius="15" Padding="14,6">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="#3EE6A8"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource ButtonFill}"/>
+                                <Setter TargetName="b" Property="BorderBrush" Value="Transparent"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Carte d'un mod -->
+        <Style x:Key="ModCard" TargetType="Border">
+            <Setter Property="Background" Value="#E00B1424"/>
+            <Setter Property="BorderBrush" Value="#22304A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Margin" Value="0,0,10,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="#3EE6A8"/>
+                    <Setter Property="Background" Value="#F00F1A2E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
-    <Border x:Name="RootBorder" SizeChanged="Root_SizeChanged" CornerRadius="16" BorderBrush="#3324406F"
+    <Border x:Name="RootBorder" SizeChanged="Root_SizeChanged" CornerRadius="16" BorderBrush="#2E3EE6A8"
             BorderThickness="1" Background="{StaticResource Bg}"
             TextElement.FontFamily="{StaticResource MainFont}" TextElement.Foreground="{StaticResource Text}">
         <Border.Clip>
@@ -174,7 +221,7 @@
             </Grid>
 
             <!-- =================== BARRE LATÉRALE =================== -->
-            <Border Grid.Column="0" Background="#E60A0F1C" BorderBrush="#141B2C" BorderThickness="0,0,1,0"
+            <Border Grid.Column="0" Background="#EE080D19" BorderBrush="#141B2C" BorderThickness="0,0,1,0"
                     MouseLeftButtonDown="TitleBar_MouseDown">
                 <DockPanel Margin="16,22,16,16">
                     <!-- Logo -->
@@ -182,7 +229,7 @@
                         <Image Source="pack://application:,,,/Assets/logo.png" Width="46" Height="46"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                         <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                            <TextBlock FontSize="22" FontWeight="Black"><Run Text="VELOX"/><Run Text="." Foreground="{StaticResource Accent}"/></TextBlock>
+                            <TextBlock FontSize="22" FontWeight="Bold"><Run Text="VELOX"/><Run Text="." Foreground="{StaticResource Accent}"/></TextBlock>
                             <TextBlock Text="C L I E N T" FontSize="9.5" Foreground="{StaticResource Muted}" Margin="1,-2,0,0"/>
                         </StackPanel>
                     </StackPanel>
@@ -277,13 +324,13 @@
                                 <TranslateTransform x:Name="HeroFloat"/>
                             </Image.RenderTransform>
                         </Image>
-                        <TextBlock HorizontalAlignment="Center" FontSize="56" FontWeight="Black" Margin="0,10,0,0">
+                        <TextBlock HorizontalAlignment="Center" FontSize="56" FontWeight="Bold" Margin="0,10,0,0">
                             <Run Text="VELOX"/><Run Text="." Foreground="{StaticResource Accent}"/>
                         </TextBlock>
                         <TextBlock Text="C  L  I  E  N  T" HorizontalAlignment="Center" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="#8FB4FF" Margin="0,-6,0,0"/>
+                                   Foreground="#8CF5CF" Margin="0,-6,0,0"/>
                         <TextBlock x:Name="SubtitleText" HorizontalAlignment="Center" TextAlignment="Center" FontSize="14"
-                                   Foreground="#AEB6C6" TextWrapping="Wrap" Margin="0,14,0,24"/>
+                                   Foreground="#C9D2E3" TextWrapping="Wrap" Margin="0,14,0,24"/>
 
                         <!-- Carte de lancement -->
                         <Border Style="{StaticResource Glass}" Padding="16">
@@ -321,102 +368,305 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ============ MODS ============ -->
-                <Border x:Name="ModsPage" Grid.Row="1" Style="{StaticResource Glass}" Margin="24,0,24,24" Padding="22"
-                        Background="#EB0B1122" Visibility="Collapsed">
-                    <Grid>
+                <!-- ============ MODS (pages façon Modrinth) ============ -->
+                <Grid x:Name="ModsPage" Grid.Row="1" Margin="24,0,24,22" Visibility="Collapsed">
+
+                    <!-- ===== Liste / recherche ===== -->
+                    <Grid x:Name="BrowseView">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Titre + onglets -->
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Mods" FontSize="26" FontWeight="Bold"/>
+                                <Border Background="#263EE6A8" CornerRadius="6" Padding="8,3" Margin="12,4,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ModsVersionText" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
+                                </Border>
+                                <TextBlock Text="via Modrinth" FontSize="12" Foreground="{StaticResource Muted}"
+                                           VerticalAlignment="Center" Margin="10,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <RadioButton x:Name="ModsTabBrowse" Style="{StaticResource Pill}" GroupName="modtab" Content="Découvrir"
+                                             IsChecked="True" Checked="ModsTab_Checked"/>
+                                <RadioButton x:Name="ModsTabInstalled" Style="{StaticResource Pill}" GroupName="modtab" Content="Installés"
+                                             Margin="6,0,0,0" Checked="ModsTab_Checked"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Recherche + tri -->
+                        <Grid x:Name="SearchRow" Grid.Row="1" Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid>
+                                <TextBox x:Name="ModSearchBox" Style="{StaticResource DarkTextBox}" KeyDown="ModSearch_KeyDown"
+                                         Padding="34,10,10,10" Background="#E6080D19"/>
+                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Muted}"
+                                           VerticalAlignment="Center" Margin="13,0,0,0" IsHitTestVisible="False"/>
+                            </Grid>
+                            <ComboBox x:Name="SortCombo" Grid.Column="1" Style="{StaticResource DarkCombo}" Width="190" Height="40"
+                                      Margin="8,0,0,0" SelectionChanged="Sort_Changed">
+                                <ComboBoxItem Tag="relevance" Content="Pertinence" IsSelected="True"/>
+                                <ComboBoxItem Tag="downloads" Content="Téléchargements"/>
+                                <ComboBoxItem Tag="follows" Content="Populaires"/>
+                                <ComboBoxItem Tag="newest" Content="Nouveautés"/>
+                                <ComboBoxItem Tag="updated" Content="Mis à jour"/>
+                            </ComboBox>
+                            <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Rechercher" FontSize="13"
+                                    Padding="18,0" Height="40" Margin="8,0,0,0" Click="ModSearch_Click"/>
+                        </Grid>
+
+                        <!-- Catégories -->
+                        <WrapPanel x:Name="CategoryChips" Grid.Row="2" Margin="0,12,0,4"/>
+
+                        <!-- Résultats -->
+                        <Grid Grid.Row="3" Margin="0,8,0,0">
+                            <ScrollViewer x:Name="ModScroll" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="ModResults">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ModCard}" Tag="{Binding}" MouseLeftButtonUp="ModCard_Click">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="64"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="64" Height="64" CornerRadius="14" Background="{StaticResource Stroke}"
+                                                            VerticalAlignment="Top" ClipToBounds="True">
+                                                        <Image Source="{Binding IconUrl, TargetNullValue={x:Null}}" Stretch="UniformToFill"/>
+                                                    </Border>
+                                                    <Grid Grid.Column="1" Margin="14,0,0,0">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                                <Run Text="{Binding Title, Mode=OneWay}" FontWeight="Bold" FontSize="15"/>
+                                                                <Run Text="{Binding Info, Mode=OneWay}" FontSize="11.5" Foreground="{StaticResource Muted}"/>
+                                                            </TextBlock>
+                                                            <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="{Binding InstallLabel}"
+                                                                    FontSize="11.5" Padding="12,5" Margin="8,0,0,0" Tag="{Binding}"
+                                                                    Click="InstallMod_Click"/>
+                                                        </Grid>
+                                                        <TextBlock Grid.Row="1" Text="{Binding Description}" Foreground="#C9D2E3" FontSize="12"
+                                                                   TextWrapping="Wrap" MaxHeight="34" TextTrimming="CharacterEllipsis" Margin="0,6,0,0"/>
+                                                        <Grid Grid.Row="2" Margin="0,8,0,0">
+                                                            <ItemsControl ItemsSource="{Binding Tags}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Background="#22304A" CornerRadius="5" Padding="7,2" Margin="0,0,5,0">
+                                                                            <TextBlock Text="{Binding}" FontSize="10.5" Foreground="#C9D2E3"/>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                                           Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Downloads}" FontSize="11.5" FontWeight="SemiBold"
+                                                                           Margin="4,0,10,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                                           Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Follows}" FontSize="11.5" FontWeight="SemiBold"
+                                                                           Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- Mods installés -->
+                            <Border x:Name="InstalledView" Style="{StaticResource Glass}" Visibility="Collapsed" Padding="16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid Margin="0,0,0,12">
+                                        <TextBlock x:Name="InstalledCount" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <Button Style="{StaticResource GhostButton}" Content="Ouvrir le dossier" HorizontalAlignment="Right"
+                                                Padding="12,6" Click="OpenMods_Click"/>
+                                    </Grid>
+                                    <ListBox x:Name="InstalledList" Grid.Row="1" Style="{StaticResource CleanList}">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="2" VerticalAlignment="Top"/>
+                                            </ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#E6080D19" CornerRadius="10" Padding="12,9" Margin="0,0,8,8"
+                                                        BorderBrush="#22304A" BorderThickness="1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Accent}"
+                                                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding FileName}" FontSize="12.5"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding FileName}"/>
+                                                        <Button Grid.Column="2" Style="{StaticResource TitleButton}" Width="28" Height="24"
+                                                                Content="&#xE74D;" ToolTip="Supprimer" Tag="{Binding}" Click="RemoveMod_Click"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <TextBlock x:Name="ModsEmptyText" Foreground="{StaticResource Muted}" FontSize="13"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                        </Grid>
+
+                        <!-- Pages -->
+                        <StackPanel x:Name="Pager" Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                            <Button x:Name="PrevPageButton" Style="{StaticResource GhostButton}" Click="PrevPage_Click" Padding="14,7">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Précédent" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </Button>
+                            <Border Background="#E6080D19" CornerRadius="8" Padding="16,7" Margin="10,0">
+                                <TextBlock x:Name="PageText" Text="Page 1" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </Border>
+                            <Button x:Name="NextPageButton" Style="{StaticResource GhostButton}" Click="NextPage_Click" Padding="14,7">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Suivant"/>
+                                    <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ===== Page d'un mod ===== -->
+                    <Grid x:Name="DetailView" Visibility="Collapsed">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="18"/>
-                            <ColumnDefinition Width="260"/>
-                        </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.ColumnSpan="3" Orientation="Horizontal">
-                            <TextBlock Text="Mods" FontSize="24" FontWeight="Black"/>
-                            <TextBlock x:Name="ModsVersionText" FontSize="13" Foreground="{StaticResource Muted}"
-                                       VerticalAlignment="Bottom" Margin="12,0,0,4"/>
-                            <TextBlock Text="· via Modrinth" FontSize="13" Foreground="{StaticResource Accent}"
-                                       VerticalAlignment="Bottom" Margin="6,0,0,4"/>
-                        </StackPanel>
+                        <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Padding="12,7" Click="DetailBack_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBlock Text="Retour aux mods" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
 
-                        <Grid Grid.Row="1" Margin="0,16,0,14">
+                        <!-- En-tête -->
+                        <Border Grid.Row="1" Style="{StaticResource Glass}" Margin="0,12,0,12" Padding="20">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="96"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Width="96" Height="96" CornerRadius="18" Background="{StaticResource Stroke}" ClipToBounds="True">
+                                    <Image x:Name="DetailIcon" Stretch="UniformToFill"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="18,0,18,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="DetailTitle" FontSize="26" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="DetailDesc" FontSize="13.5" Foreground="#C9D2E3" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    <StackPanel x:Name="DetailStats" Orientation="Horizontal" Margin="0,10,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <Button x:Name="DetailInstall" Style="{StaticResource PrimaryButton}" Content="Installer" FontSize="15"
+                                            Width="180" Height="46" Click="DetailInstall_Click"/>
+                                    <Button Style="{StaticResource GhostButton}" Content="Voir sur Modrinth" Margin="0,8,0,0"
+                                            Click="DetailWeb_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Contenu -->
+                        <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="14"/>
+                                <ColumnDefinition Width="290"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="ModSearchBox" Style="{StaticResource DarkTextBox}" KeyDown="ModSearch_KeyDown"/>
-                            <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="Rechercher" FontSize="13"
-                                    Padding="16,7" Margin="8,0,0,0" Click="ModSearch_Click"/>
-                        </Grid>
-                        <Grid Grid.Row="1" Grid.Column="2" Margin="0,16,0,14">
-                            <TextBlock Text="Installés" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button Style="{StaticResource GhostButton}" Content="Ouvrir le dossier" HorizontalAlignment="Right"
-                                    Padding="10,5" Click="OpenMods_Click"/>
-                        </Grid>
-
-                        <ListBox x:Name="ModResults" Grid.Row="2" Style="{StaticResource CleanList}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="#B00A0F1C" CornerRadius="10" Padding="12" Margin="0,0,6,8"
-                                            BorderBrush="#1F24406F" BorderThickness="1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="48"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border Width="48" Height="48" CornerRadius="10" Background="{StaticResource Stroke}"
-                                                    VerticalAlignment="Top" ClipToBounds="True">
-                                                <Image Source="{Binding IconUrl, TargetNullValue={x:Null}}" Stretch="UniformToFill"/>
-                                            </Border>
-                                            <StackPanel Grid.Column="1" Margin="14,0,14,0">
-                                                <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14"/>
-                                                <TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}"
-                                                           TextWrapping="Wrap" FontSize="12" Margin="0,3,0,0" MaxHeight="34"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding Info}" Foreground="{StaticResource Muted}" FontSize="11"
-                                                           Margin="0,5,0,0" Opacity="0.7"/>
-                                            </StackPanel>
-                                            <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Installer"
-                                                    FontSize="12" Padding="16,7" VerticalAlignment="Center"
-                                                    Tag="{Binding}" Click="InstallMod_Click"/>
-                                        </Grid>
+                            <Border Style="{StaticResource Glass}" Padding="22,18">
+                                <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <WrapPanel x:Name="DetailGallery" Margin="0,0,0,8"/>
+                                        <StackPanel x:Name="DetailBody"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Style="{StaticResource Glass}" Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="VERSIONS COMPATIBLES" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Accent}"/>
+                                            <ItemsControl x:Name="DetailVersions" Margin="0,10,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="#E6080D19" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                                            <StackPanel>
+                                                                <Grid>
+                                                                    <TextBlock Text="{Binding Number}" FontWeight="SemiBold" FontSize="12.5"
+                                                                               TextTrimming="CharacterEllipsis" Margin="0,0,56,0"/>
+                                                                    <Border Background="#263EE6A8" CornerRadius="4" Padding="6,1" HorizontalAlignment="Right">
+                                                                        <TextBlock Text="{Binding Type}" FontSize="10" Foreground="{StaticResource Accent}"/>
+                                                                    </Border>
+                                                                </Grid>
+                                                                <TextBlock FontSize="11" Foreground="{StaticResource Muted}" Margin="0,3,0,0">
+                                                                    <Run Text="{Binding Date, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Downloads, Mode=OneWay}"/><Run Text=" téléch."/>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
                                     </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        <TextBlock x:Name="ModsEmptyText" Grid.Row="2" Foreground="{StaticResource Muted}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-
-                        <ListBox x:Name="InstalledList" Grid.Row="2" Grid.Column="2" Style="{StaticResource CleanList}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="#B00A0F1C" CornerRadius="8" Padding="10,7" Margin="0,0,4,6">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding FileName}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Center" ToolTip="{Binding FileName}"/>
-                                            <Button Grid.Column="1" Style="{StaticResource TitleButton}" Width="26" Height="22"
-                                                    Content="&#xE74D;" ToolTip="Supprimer" Tag="{Binding}" Click="RemoveMod_Click"/>
-                                        </Grid>
+                                    <Border Style="{StaticResource Glass}" Padding="16" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="INFOS" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Accent}"/>
+                                            <StackPanel x:Name="DetailInfo" Margin="0,10,0,0"/>
+                                            <WrapPanel x:Name="DetailLinks" Margin="0,8,0,0"/>
+                                        </StackPanel>
                                     </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
                     </Grid>
-                </Border>
+                </Grid>
 
                 <!-- ============ PARAMÈTRES ============ -->
                 <Border x:Name="SettingsPage" Grid.Row="1" Style="{StaticResource Glass}" Margin="24,0,24,24" Padding="28"
-                        Background="#EB0B1122" Visibility="Collapsed">
+                        Background="#F0091222" Visibility="Collapsed">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -426,7 +676,7 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel>
-                                <TextBlock Text="Paramètres" FontSize="24" FontWeight="Black"/>
+                                <TextBlock Text="Paramètres" FontSize="24" FontWeight="Bold"/>
                                 <TextBlock Text="JEU" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Accent}" Margin="0,22,0,0"/>
                                 <Grid Margin="0,14,0,0">
                                     <TextBlock Text="Mémoire (RAM)" FontWeight="SemiBold"/>

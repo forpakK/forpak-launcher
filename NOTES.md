@@ -1,1 +1,1 @@
-Aurores boréales et neige sur le fond animé (un clin d'œil à Forpak Client), sapins enneigés. Le fond se met en pause pendant que tu joues.
+Nouvelle palette vert aurore (plus de texte noir, meilleur contraste) et pages Modrinth : catégories, tri, pages, fiche détaillée de chaque mod avec description, galerie et versions.

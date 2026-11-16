@@ -6,23 +6,31 @@
         <ResourceDictionary>
 
             <!-- Palette -->
-            <Color x:Key="BgColor">#0A0F1C</Color>
-            <Color x:Key="AccentColor">#2D7BFF</Color>
-            <SolidColorBrush x:Key="Bg" Color="#0A0F1C"/>
-            <SolidColorBrush x:Key="Panel" Color="#0E1424"/>
-            <SolidColorBrush x:Key="PanelHover" Color="#141C30"/>
-            <SolidColorBrush x:Key="Stroke" Color="#1F2840"/>
-            <SolidColorBrush x:Key="Text" Color="#E6EAF2"/>
-            <SolidColorBrush x:Key="Muted" Color="#6B7488"/>
-            <SolidColorBrush x:Key="Accent" Color="#2D7BFF"/>
-            <SolidColorBrush x:Key="AccentDark" Color="#1F63D6"/>
+            <Color x:Key="BgColor">#080D19</Color>
+            <Color x:Key="AccentColor">#3EE6A8</Color>
+            <SolidColorBrush x:Key="Bg" Color="#080D19"/>
+            <SolidColorBrush x:Key="Panel" Color="#0D1526"/>
+            <SolidColorBrush x:Key="PanelHover" Color="#15203A"/>
+            <SolidColorBrush x:Key="Stroke" Color="#22304A"/>
+            <SolidColorBrush x:Key="Text" Color="#F3F6FB"/>
+            <SolidColorBrush x:Key="Muted" Color="#A3AEC4"/>
+            <SolidColorBrush x:Key="Accent" Color="#3EE6A8"/>
+            <SolidColorBrush x:Key="AccentDark" Color="#2BC48D"/>
             <SolidColorBrush x:Key="Danger" Color="#FF5C5C"/>
+            <LinearGradientBrush x:Key="ButtonFill" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#14A880" Offset="0"/>
+                <GradientStop Color="#0C86AE" Offset="1"/>
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="ButtonFillHover" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#19BE91" Offset="0"/>
+                <GradientStop Color="#0F99C4" Offset="1"/>
+            </LinearGradientBrush>
 
             <FontFamily x:Key="MainFont">Segoe UI Variable Display, Segoe UI</FontFamily>
 
             <!-- Bouton principal (vert) -->
             <Style x:Key="PrimaryButton" TargetType="Button">
-                <Setter Property="Background" Value="{StaticResource Accent}"/>
+                <Setter Property="Background" Value="{StaticResource ButtonFill}"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="FontFamily" Value="{StaticResource MainFont}"/>
                 <Setter Property="FontWeight" Value="Bold"/>
@@ -38,7 +46,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentDark}"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource ButtonFillHover}"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
@@ -123,7 +131,7 @@
                             </StackPanel>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Track" Property="Background" Value="{StaticResource Accent}"/>
+                                    <Setter TargetName="Track" Property="Background" Value="{StaticResource ButtonFill}"/>
                                     <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                                     <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
                                     <Setter TargetName="Knob" Property="Fill" Value="White"/>
@@ -231,9 +239,22 @@
                 </Setter>
             </Style>
 
-            <!-- Liste sans surbrillance bleue -->
+            <Style TargetType="RadioButton">
+                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            </Style>
+            <Style TargetType="ItemsControl">
+                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            </Style>
+            <Style TargetType="ToolTip">
+                <Setter Property="Background" Value="{StaticResource Panel}"/>
+                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource Stroke}"/>
+            </Style>
+
+            <!-- Liste sans surbrillance -->
             <Style x:Key="CleanList" TargetType="ListBox">
                 <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource Text}"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
                 <Setter Property="ItemContainerStyle">

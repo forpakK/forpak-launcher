@@ -55,7 +55,7 @@ public class ModulesScreen extends Screen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, width, height, 0x90000000);
         Ui.rect(ctx, panelX, panelY, panelW, panelH, Ui.BG_SOLID);
-        Ui.outline(ctx, panelX, panelY, panelW, panelH, 0xFF24406F);
+        Ui.outline(ctx, panelX, panelY, panelW, panelH, 0xFF2A6B5E);
 
         // Titre
         ctx.drawTextWithShadow(textRenderer, "VELOX", panelX + 12, panelY + 12, Ui.WHITE);
