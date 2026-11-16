@@ -542,6 +542,9 @@ namespace ForpakLauncher
             PerfSettingSwitch.IsChecked = _settings.PerformanceMode;
             AnimSwitch.IsChecked = _settings.AnimatedBackground;
             CfKeyBox.Text = _settings.CurseForgeApiKey;
+            CfKeyHint.Text = CurseForge.BuiltInKey != null
+                ? "Une clé est déjà intégrée au launcher : laisse vide, ou mets la tienne pour la remplacer."
+                : "À créer sur console.curseforge.com. Sans clé, seul Modrinth marche.";
             SavedText.Visibility = Visibility.Collapsed;
         }
 
@@ -692,8 +695,8 @@ namespace ForpakLauncher
 
             if (IsCf && !_cf.HasKey)
             {
-                ModsEmptyText.Text = "CurseForge demande une clé API gratuite.\n" +
-                    "Crée-la sur console.curseforge.com (onglet API Keys), puis colle-la dans les paramètres.";
+                ModsEmptyText.Text = "CurseForge n'est pas encore activé dans cette version du launcher.\n" +
+                    "Mets une clé dans les paramètres, ou attends la prochaine mise à jour.";
                 CfKeyPanel.Visibility = Visibility.Visible;
                 PageText.Text = "Page 1";
                 return;

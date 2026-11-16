@@ -22,12 +22,28 @@ namespace ForpakLauncher.Core
             _dl = new Downloader(http);
         }
 
-        public bool HasKey => !string.IsNullOrWhiteSpace(ApiKey);
+        /// <summary>Clé intégrée au .exe au moment du build (secret GitHub).</summary>
+        public static string BuiltInKey
+        {
+            get
+            {
+                var attr = typeof(CurseForge).Assembly
+                    .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+                    .Cast<System.Reflection.AssemblyMetadataAttribute>()
+                    .FirstOrDefault(a => a.Key == "CurseForgeKey");
+                return string.IsNullOrWhiteSpace(attr?.Value) ? null : attr.Value;
+            }
+        }
+
+        /// <summary>Clé perso des paramètres si remplie, sinon la clé intégrée.</summary>
+        private string EffectiveKey => string.IsNullOrWhiteSpace(ApiKey) ? BuiltInKey : ApiKey.Trim();
+
+        public bool HasKey => !string.IsNullOrWhiteSpace(EffectiveKey);
 
         private async Task<JsonNode> GetAsync(string path)
         {
             var req = new HttpRequestMessage(HttpMethod.Get, Api + path);
-            req.Headers.Add("x-api-key", ApiKey.Trim());
+            req.Headers.TryAddWithoutValidation("x-api-key", EffectiveKey);
             req.Headers.Add("Accept", "application/json");
             var res = await _http.SendAsync(req);
             if ((int)res.StatusCode == 403 || (int)res.StatusCode == 401)

@@ -21,6 +21,14 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!-- Clé CurseForge injectée par GitHub Actions (secret CF_API_KEY), jamais écrite dans le code -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>CurseForgeKey</_Parameter1>
+      <_Parameter2>$(CurseForgeKey)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="System.Net.Http" />
     <Using Include="System.IO" />

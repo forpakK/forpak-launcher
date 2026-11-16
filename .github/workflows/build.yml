@@ -58,8 +58,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Publish VeloxClient.exe
+        env:
+          CF_KEY: ${{ secrets.CF_API_KEY }}
         run: |
-          dotnet publish ForpakLauncher.csproj -c Release -o out -p:Version=${{ env.APP_VERSION }}
+          dotnet publish ForpakLauncher.csproj -c Release -o out -p:Version=${{ env.APP_VERSION }} "-p:CurseForgeKey=$env:CF_KEY"
           # copie avec l'ancien nom : les launchers Forpak se mettent à jour vers Velox
           Copy-Item out/VeloxClient.exe out/ForpakLauncher.exe
 

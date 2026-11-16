@@ -1,1 +1,1 @@
-Page Mods : interrupteur à glisser entre Modrinth et CurseForge, avec leurs logos de chaque côté.
+Préparation : la clé CurseForge peut maintenant être intégrée au launcher (pour tout le monde, sans rien configurer).

@@ -831,7 +831,7 @@
                                     <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Obtenir" Margin="8,0,0,0"
                                             Click="CfKeyWeb_Click"/>
                                 </Grid>
-                                <TextBlock Text="À créer sur console.curseforge.com. Sans clé, seul Modrinth marche."
+                                <TextBlock x:Name="CfKeyHint" Text="À créer sur console.curseforge.com. Sans clé, seul Modrinth marche."
                                            FontSize="11" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
 
