@@ -1,1 +1,1 @@
-Correctif : le jeu plantait dès que le HUD s'affichait. C'est réparé, et un élément du HUD qui bug ne peut plus faire planter Minecraft.
+HUD : agrandis ou rétrécis chaque élément à la souris (coin, + / -), nouvel affichage plus propre (touches animées, barres de durabilité, pastilles de potions) et menu des modules rangé par catégories.

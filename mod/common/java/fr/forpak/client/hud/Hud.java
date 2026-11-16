@@ -148,21 +148,22 @@ public final class Hud {
         @Override public int width(MinecraftClient mc, boolean editing) {
             String s = full(mc);
             if (s.isEmpty() && editing) s = name;
-            return mc.textRenderer.getWidth(s) + 8;
+            return mc.textRenderer.getWidth(s) + 12;
         }
-        @Override public int height(MinecraftClient mc, boolean editing) { return 13; }
+        @Override public int height(MinecraftClient mc, boolean editing) { return 15; }
 
         @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
             TextRenderer tr = mc.textRenderer;
             String v = value.apply(mc);
             if (v.isEmpty() && editing) v = name;
-            Ui.rect(ctx, x, y, width(mc, editing), 13, bg());
-            int tx = x + 4;
+            Ui.rect(ctx, x, y, width(mc, editing), 15, bg());
+            ctx.fill(x + 1, y + 3, x + 3, y + 12, accent());   // petite barre de couleur
+            int tx = x + 7;
             if (!label.isEmpty()) {
-                ctx.drawTextWithShadow(tr, label, tx, y + 3, accent());
+                ctx.drawTextWithShadow(tr, label, tx, y + 4, accent());
                 tx += tr.getWidth(label + " ");
             }
-            ctx.drawTextWithShadow(tr, v, tx, y + 3, Ui.WHITE);
+            ctx.drawTextWithShadow(tr, v, tx, y + 4, Ui.WHITE);
         }
     }
 
@@ -199,13 +200,24 @@ public final class Hud {
             mouse(ctx, tr, mc.options.useKey.isPressed(), "RMB", Stats.cpsRight(), x + half + G, y2, half, S);
             boolean jump = mc.options.jumpKey.isPressed();
             int y3 = y2 + S + G;
-            Ui.rect(ctx, x, y3, w3, 12, jump ? pressed() : bg());
+            Ui.rect(ctx, x, y3, w3, 12, anim("jump", jump));
             ctx.fill(x + w3 / 2 - 14, y3 + 5, x + w3 / 2 + 14, y3 + 7, Ui.WHITE);
+        }
+
+        private static final java.util.Map<String, Float> ANIM = new java.util.HashMap<>();
+
+        /** Animation douce quand une touche est appuyée / relâchée. */
+        private static int anim(String id, boolean down) {
+            float v = ANIM.getOrDefault(id, 0f);
+            v += ((down ? 1f : 0f) - v) * 0.35f;
+            ANIM.put(id, v);
+            int base = bg() == 0 ? 0x30000000 : bg();
+            return Ui.lerp(base, pressed(), v);
         }
 
         private static void key(DrawContext ctx, TextRenderer tr, KeyBinding kb, int x, int y, int w, int h) {
             boolean down = kb.isPressed();
-            Ui.rect(ctx, x, y, w, h, down ? pressed() : bg());
+            Ui.rect(ctx, x, y, w, h, anim("k" + System.identityHashCode(kb), down));
             String t = kb.getBoundKeyLocalizedText().getString().toUpperCase();
             if (t.length() > 3) t = t.substring(0, 3);
             ctx.drawTextWithShadow(tr, t, x + (w - tr.getWidth(t)) / 2, y + (h - 8) / 2, Ui.WHITE);
@@ -213,7 +225,7 @@ public final class Hud {
 
         private static void mouse(DrawContext ctx, TextRenderer tr, boolean down, String label, int cps,
                                   int x, int y, int w, int h) {
-            Ui.rect(ctx, x, y, w, h, down ? pressed() : bg());
+            Ui.rect(ctx, x, y, w, h, anim(label, down));
             ctx.drawTextWithShadow(tr, label, x + (w - tr.getWidth(label)) / 2, y + 3, Ui.WHITE);
             String c = cps + " CPS";
             ctx.drawTextWithShadow(tr, c, x + (w - tr.getWidth(c)) / 2, y + 12, down ? Ui.WHITE : Ui.GREY);
@@ -264,7 +276,10 @@ public final class Hud {
                         int pct = left * 100 / Math.max(1, s.getMaxDamage());
                         int col = pct > 50 ? accent() : pct > 20 ? Ui.ORANGE : Ui.RED;
                         String t = String.valueOf(left);
-                        ctx.drawTextWithShadow(mc.textRenderer, t, x + 52 - 20 - mc.textRenderer.getWidth(t), ry + 4, col);
+                        ctx.drawTextWithShadow(mc.textRenderer, t, x + 52 - 20 - mc.textRenderer.getWidth(t), ry + 3, col);
+                        int bw = 26, bxx = x + 52 - 20 - bw;
+                        ctx.fill(bxx, ry + 13, bxx + bw, ry + 15, 0x90000000);
+                        ctx.fill(bxx, ry + 13, bxx + Math.max(1, bw * pct / 100), ry + 15, col);
                     }
                 } else if (editing) {
                     Ui.rect(ctx, x + 52 - 17, ry, 16, 16, bg());
@@ -286,9 +301,10 @@ public final class Hud {
                 if (e.getAmplifier() > 0) name += " " + (e.getAmplifier() + 1);
                 int secs = e.getDuration() / 20;
                 String time = e.isInfinite() ? "∞" : String.format("%d:%02d", secs / 60, secs % 60);
-                out.add(new String[]{name, time, (!e.isInfinite() && secs < 10) ? "1" : "0"});
+                out.add(new String[]{name, time, (!e.isInfinite() && secs < 10) ? "1" : "0",
+                        String.valueOf(0xFF000000 | e.getEffectType().value().getColor())});
             }
-            if (out.isEmpty() && editing) out.add(new String[]{"Force 2", "1:30", "0"});
+            if (out.isEmpty() && editing) out.add(new String[]{"Force 2", "1:30", "0", String.valueOf(0xFFFFC23D)});
             return out;
         }
 
@@ -297,7 +313,7 @@ public final class Hud {
         @Override public int width(MinecraftClient mc, boolean editing) {
             int w = 0;
             for (String[] l : lines(mc, editing)) w = Math.max(w, mc.textRenderer.getWidth(l[0] + "  " + l[1]));
-            return w + 8;
+            return w + 18;
         }
         @Override public int height(MinecraftClient mc, boolean editing) { return lines(mc, editing).size() * 14; }
 
@@ -305,7 +321,9 @@ public final class Hud {
             int w = width(mc, editing), ry = y;
             for (String[] l : lines(mc, editing)) {
                 Ui.rect(ctx, x, ry, w, 13, bg());
-                ctx.drawTextWithShadow(mc.textRenderer, l[0], x + 4, ry + 3, Ui.WHITE);
+                int dot = (int) Long.parseLong(l[3]);
+                ctx.fill(x + 4, ry + 4, x + 9, ry + 9, dot);
+                ctx.drawTextWithShadow(mc.textRenderer, l[0], x + 13, ry + 3, Ui.WHITE);
                 ctx.drawTextWithShadow(mc.textRenderer, l[1], x + w - 4 - mc.textRenderer.getWidth(l[1]), ry + 3,
                         l[2].equals("1") ? Ui.RED : Ui.GREY);
                 ry += 14;

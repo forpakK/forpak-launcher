@@ -17,6 +17,12 @@ public class ModulesScreen extends Screen {
     private record Module(String name, String desc, BooleanSupplier get, Consumer<Boolean> set,
                           java.util.function.Function<Screen, Screen> settings) { }
 
+    // Catégories (onglets)
+    private static final String[] TABS = {"HUD", "PvP", "Visuel", "Tout"};
+    private static int tab = 0;
+    private final java.util.Map<Module, Integer> cats = new java.util.HashMap<>();
+    private int scroll = 0;
+
     private final Screen parent;
     private final List<Module> modules = new ArrayList<>();
     private final Clicks clicks = new Clicks();
@@ -45,11 +51,25 @@ public class ModulesScreen extends Screen {
         modules.add(new Module("Menu Velox", "Écran titre perso", () -> c.customMenu, v -> { c.customMenu = v; c.save(); }, null));
     }
 
+    private List<Module> shown() {
+        if (cats.isEmpty())
+            for (Module m : modules) {
+                String n = m.name();
+                int c = m.desc().startsWith("HUD") ? 0
+                        : (n.contains("Optimizer") || n.startsWith("Toggle") || n.equals("Zoom") || n.equals("Freelook")) ? 1 : 2;
+                cats.put(m, c);
+            }
+        if (tab == 3) return modules;
+        List<Module> out = new ArrayList<>();
+        for (Module m : modules) if (cats.get(m) == tab) out.add(m);
+        return out;
+    }
+
     @Override
     protected void init() {
-        int rows = (modules.size() + COLS - 1) / COLS;
+        int rows = Math.min(5, (modules.size() + COLS - 1) / COLS);
         panelW = COLS * CARD_W + (COLS - 1) * GAP + 24;
-        panelH = 34 + rows * (CARD_H + GAP) + 34;
+        panelH = 34 + 24 + rows * (CARD_H + GAP) + 34;
         panelX = (width - panelW) / 2;
         panelY = Math.max(4, (height - panelH) / 2);
     }
@@ -68,11 +88,36 @@ public class ModulesScreen extends Screen {
         String hint = "Gauche : activer · Droit : options";
         ctx.drawTextWithShadow(textRenderer, hint, panelX + panelW - 12 - textRenderer.getWidth(hint), panelY + 12, Ui.GREY);
 
-        int startX = panelX + 12, startY = panelY + 30;
-        for (int i = 0; i < modules.size(); i++) {
-            Module m = modules.get(i);
-            int x = startX + (i % COLS) * (CARD_W + GAP);
-            int y = startY + (i / COLS) * (CARD_H + GAP);
+        // Onglets
+        int tx = panelX + 12;
+        for (int t = 0; t < TABS.length; t++) {
+            int tw = textRenderer.getWidth(TABS[t]) + 18;
+            boolean on = tab == t, hov = Ui.inside(mouseX, mouseY, tx, panelY + 28, tw, 18);
+            Ui.rect(ctx, tx, panelY + 28, tw, 18, on ? 0xFF14A880 : hov ? Ui.CARD_HOVER : Ui.CARD);
+            ctx.drawTextWithShadow(textRenderer, TABS[t], tx + 9, panelY + 33, Ui.WHITE);
+            if (hov && clicks.left) { tab = t; scroll = 0; }
+            tx += tw + 4;
+        }
+
+        List<Module> list = shown();
+        int visibleRows = (panelH - 34 - 24 - 34 + GAP) / (CARD_H + GAP);
+        int totalRows = (list.size() + COLS - 1) / COLS;
+        int maxScroll = Math.max(0, totalRows - visibleRows);
+        scroll = Math.max(0, Math.min(scroll, maxScroll));
+        if (maxScroll > 0) {
+            String pg = "▲ ▼  " + (scroll + 1) + "/" + (maxScroll + 1);
+            int px2 = panelX + panelW - 12 - textRenderer.getWidth(pg);
+            ctx.drawTextWithShadow(textRenderer, pg, px2, panelY + 33, Ui.GREY);
+            if (clicks.left && Ui.inside(mouseX, mouseY, px2, panelY + 28, 12, 18)) scroll--;
+            if (clicks.left && Ui.inside(mouseX, mouseY, px2 + 14, panelY + 28, 12, 18)) scroll++;
+        }
+
+        int startX = panelX + 12, startY = panelY + 30 + 24;
+        for (int i = scroll * COLS; i < list.size() && i < (scroll + visibleRows) * COLS; i++) {
+            Module m = list.get(i);
+            int idx = i - scroll * COLS;
+            int x = startX + (idx % COLS) * (CARD_W + GAP);
+            int y = startY + (idx / COLS) * (CARD_H + GAP);
             boolean hover = Ui.inside(mouseX, mouseY, x, y, CARD_W, CARD_H);
             boolean on = m.get().getAsBoolean();
             if (hover && clicks.left) { m.set().accept(!on); on = !on; }

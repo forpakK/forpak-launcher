@@ -21,10 +21,23 @@ public final class Ui {
 
     /** Rectangle aux coins légèrement arrondis. */
     public static void rect(DrawContext ctx, int x, int y, int w, int h, int color) {
-        if (w <= 2 || h <= 2) { ctx.fill(x, y, x + w, y + h, color); return; }
-        ctx.fill(x + 1, y, x + w - 1, y + h, color);
-        ctx.fill(x, y + 1, x + 1, y + h - 1, color);
-        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+        if ((color >>> 24) == 0) return;
+        if (w <= 4 || h <= 4) { ctx.fill(x, y, x + w, y + h, color); return; }
+        // Coins arrondis (2 px), sans zones qui se superposent
+        ctx.fill(x + 2, y, x + w - 2, y + h, color);
+        ctx.fill(x + 1, y + 1, x + 2, y + h - 1, color);
+        ctx.fill(x + w - 2, y + 1, x + w - 1, y + h - 1, color);
+        ctx.fill(x, y + 2, x + 1, y + h - 2, color);
+        ctx.fill(x + w - 1, y + 2, x + w, y + h - 2, color);
+    }
+
+    /** Mélange deux couleurs ARGB (t entre 0 et 1). */
+    public static int lerp(int a, int b, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        int aa = a >>> 24, ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int ba = b >>> 24, br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return ((int) (aa + (ba - aa) * t) << 24) | ((int) (ar + (br - ar) * t) << 16)
+                | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
     }
 
     /** Contour d'un rectangle (1 px). */
