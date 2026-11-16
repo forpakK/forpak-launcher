@@ -7,6 +7,6 @@ public final class HudHook {
     private HudHook() { }
 
     public static void register() {
-        HudRenderCallback.EVENT.register((ctx, tickCounter) -> Hud.render(ctx));
+        HudRenderCallback.EVENT.register((ctx, tickCounter) -> fr.forpak.client.hud.Hud.render(ctx, false));
     }
 }

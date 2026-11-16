@@ -6,21 +6,35 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
-/** Réglages des modules, sauvegardés dans config/forpakclient.json */
+/** Réglages, sauvegardés dans config/forpakclient.json */
 public class Config {
-    public boolean fps = true;
-    public boolean cps = true;
-    public boolean coords = true;
-    public boolean keystrokes = true;
-    public boolean armor = true;
-    public boolean potions = true;
-    public boolean pvpCounter = true;
+    /** Modules HUD activés (id -> on/off) */
+    public Map<String, Boolean> enabled = new HashMap<>();
+    /** Position des éléments du HUD (id -> {x, y} entre 0 et 1) */
+    public Map<String, float[]> pos = new HashMap<>();
+
     public boolean crystalOptimizer = true;
     public boolean zoom = true;
     public int zoomFov = 30;
+    public boolean toggleSprintModule = true;
+    public boolean toggleSneakModule = true;
+
+    // État des toggles (sauvegardé pour garder le sprint entre deux parties)
+    public boolean sprintToggled = false;
+    public boolean sneakToggled = false;
+
+    public boolean isOn(String id, boolean def) {
+        Boolean b = enabled.get(id);
+        return b == null ? def : b;
+    }
+
+    // ------------------------------------------------------------------
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
     private static Path file() {
         return FabricLoader.getInstance().getConfigDir().resolve("forpakclient.json");
     }
@@ -30,7 +44,11 @@ public class Config {
             Path f = file();
             if (Files.exists(f)) {
                 Config c = GSON.fromJson(Files.readString(f), Config.class);
-                if (c != null) return c;
+                if (c != null) {
+                    if (c.enabled == null) c.enabled = new HashMap<>();
+                    if (c.pos == null) c.pos = new HashMap<>();
+                    return c;
+                }
             }
         } catch (Exception ignored) { }
         Config c = new Config();

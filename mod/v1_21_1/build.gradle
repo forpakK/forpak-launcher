@@ -23,6 +23,7 @@ dependencies {
 sourceSets {
     main {
         java { srcDir '../common/java' }
+        resources { srcDir '../common/resources' }
     }
 }
 
