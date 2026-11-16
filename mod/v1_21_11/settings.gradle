@@ -5,4 +5,4 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-rootProject.name = 'forpakclient-1.21.11'
+rootProject.name = 'veloxclient-1.21.11'

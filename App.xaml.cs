@@ -9,7 +9,7 @@ namespace ForpakLauncher
             base.OnStartup(e);
             DispatcherUnhandledException += (s, ex) =>
             {
-                MessageBox.Show(ex.Exception.Message, "Forpak Launcher - erreur",
+                MessageBox.Show(ex.Exception.Message, "Velox Client - erreur",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 ex.Handled = true;
             };

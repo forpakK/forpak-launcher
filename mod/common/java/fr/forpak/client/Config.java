@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Réglages, sauvegardés dans config/forpakclient.json */
+/** Réglages, sauvegardés dans config/veloxclient.json */
 public class Config {
     /** Modules HUD activés (id -> on/off) */
     public Map<String, Boolean> enabled = new HashMap<>();
@@ -36,12 +36,17 @@ public class Config {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private static Path file() {
+        return FabricLoader.getInstance().getConfigDir().resolve("veloxclient.json");
+    }
+
+    private static Path legacyFile() {
         return FabricLoader.getInstance().getConfigDir().resolve("forpakclient.json");
     }
 
     public static Config load() {
         try {
             Path f = file();
+            if (!Files.exists(f) && Files.exists(legacyFile())) f = legacyFile();
             if (Files.exists(f)) {
                 Config c = GSON.fromJson(Files.readString(f), Config.class);
                 if (c != null) {

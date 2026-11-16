@@ -6,16 +6,17 @@ import net.minecraft.client.gui.DrawContext;
 public final class Ui {
     private Ui() { }
 
-    public static final int BG = 0x8C0E0F13;
-    public static final int BG_SOLID = 0xF016181E;
-    public static final int CARD = 0xFF1E2129;
-    public static final int CARD_HOVER = 0xFF262A33;
-    public static final int ACCENT = 0xFF3DDC84;
-    public static final int ACCENT_BG = 0xD03DDC84;
+    public static final int BG = 0x900A0F1C;
+    public static final int BG_SOLID = 0xF20E1424;
+    public static final int CARD = 0xFF141C30;
+    public static final int CARD_HOVER = 0xFF1C2742;
+    public static final int ACCENT = 0xFF4F8DFF;
+    public static final int ACCENT_BG = 0xD02D7BFF;
     public static final int RED = 0xFFFF5C5C;
     public static final int ORANGE = 0xFFFFC23D;
     public static final int WHITE = 0xFFFFFFFF;
-    public static final int GREY = 0xFFA0A4AE;
+    public static final int GREY = 0xFF8A93A6;
+    public static final int GREEN = 0xFF4ADE80;
     public static final int BLACK = 0xFF0B0C0F;
 
     /** Rectangle aux coins légèrement arrondis. */

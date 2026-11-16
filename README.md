@@ -1,4 +1,4 @@
-# Forpak Launcher
+# Velox Client
 
 Launcher Minecraft Java épuré pour Windows (C# / WPF, .NET 8), livré en un seul `.exe`.
 
@@ -9,7 +9,7 @@ Launcher Minecraft Java épuré pour Windows (C# / WPF, .NET 8), livré en un se
 - Réglage de la **RAM**, chemin **Java** perso (sinon Java est téléchargé tout seul depuis Mojang), arguments JVM
 - Tout est rangé dans `%APPDATA%\.forpaklauncher` (séparé du launcher officiel)
 
-## Forpak Client (modules PvP)
+## Velox Client (mod) (modules PvP)
 Mod Fabric installé et mis à jour automatiquement par le launcher (Minecraft **1.21.1** et **1.21.11**, Fabric activé).
 - **Shift droit** : menu des modules (ON/OFF, sauvegardé dans `config/forpakclient.json`)
 - FPS, CPS (gauche | droit), coordonnées + direction
@@ -29,14 +29,14 @@ Chaque version a son propre dossier : `%APPDATA%\.forpaklauncher\instances\<vers
 ## Mises à jour automatiques
 À chaque push sur `main`, GitHub compile le launcher et les mods et remplace la release `latest`.
 Le launcher vérifie `version.txt` au démarrage : un bouton **Mise à jour** apparaît en haut,
-et Forpak Client se met à jour tout seul au lancement du jeu.
+et Velox Client (mod) se met à jour tout seul au lancement du jeu.
 
 ⚠️ Le dépôt doit s'appeler comme dans `Core/Updater.cs` → `Repo = "forpakK/forpak-launcher"` (change-le sinon)
 et être **public** (sinon le launcher ne peut pas télécharger les fichiers).
 
 ## Obtenir le .exe
 Chaque push sur `main` lance GitHub Actions qui compile le launcher.
-Le fichier est dans **Releases → latest → ForpakLauncher.exe** (ou dans l'onglet *Actions*, artefact `ForpakLauncher`).
+Le fichier est dans **Releases → latest → VeloxClient.exe** (ou dans l'onglet *Actions*, artefact `ForpakLauncher`).
 
 Pour compiler sur ton PC : installe le SDK .NET 8 puis
 ```

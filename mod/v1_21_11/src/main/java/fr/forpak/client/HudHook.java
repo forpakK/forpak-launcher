@@ -8,6 +8,6 @@ public final class HudHook {
     private HudHook() { }
 
     public static void register() {
-        HudElementRegistry.addLast(Identifier.of("forpakclient", "hud"), (ctx, tickCounter) -> fr.forpak.client.hud.Hud.render(ctx, false));
+        HudElementRegistry.addLast(Identifier.of("veloxclient", "hud"), (ctx, tickCounter) -> fr.forpak.client.hud.Hud.render(ctx, false));
     }
 }

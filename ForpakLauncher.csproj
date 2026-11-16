@@ -6,10 +6,10 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <AssemblyName>ForpakLauncher</AssemblyName>
+    <AssemblyName>VeloxClient</AssemblyName>
     <RootNamespace>ForpakLauncher</RootNamespace>
     <Version>1.0.0</Version>
-    <Product>Forpak Launcher</Product>
+    <Product>Velox Client</Product>
 
     <!-- Un seul .exe autonome (pas besoin d'installer .NET) -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -27,8 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\bg.png" />
-    <Resource Include="Assets\logo.png" />
+    <Resource Include="Assets\*.png" />
     <Resource Include="Assets\icon.ico" />
   </ItemGroup>
 

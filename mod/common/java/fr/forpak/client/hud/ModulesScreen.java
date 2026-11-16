@@ -25,7 +25,7 @@ public class ModulesScreen extends Screen {
     private static final int COLS = 4, CARD_W = 104, CARD_H = 42, GAP = 6;
 
     public ModulesScreen() {
-        super(Text.literal("Forpak Client"));
+        super(Text.literal("Velox Client"));
         Config c = ForpakClient.CONFIG;
         for (HudElement e : Hud.ELEMENTS)
             modules.add(new Module(e.name, "HUD", e::isEnabled, e::setEnabled));
@@ -55,11 +55,12 @@ public class ModulesScreen extends Screen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, width, height, 0x90000000);
         Ui.rect(ctx, panelX, panelY, panelW, panelH, Ui.BG_SOLID);
-        Ui.outline(ctx, panelX, panelY, panelW, panelH, 0xFF262A33);
+        Ui.outline(ctx, panelX, panelY, panelW, panelH, 0xFF24406F);
 
         // Titre
-        ctx.drawTextWithShadow(textRenderer, "FORPAK", panelX + 12, panelY + 12, Ui.ACCENT);
-        ctx.drawTextWithShadow(textRenderer, " CLIENT", panelX + 12 + textRenderer.getWidth("FORPAK"), panelY + 12, Ui.WHITE);
+        ctx.drawTextWithShadow(textRenderer, "VELOX", panelX + 12, panelY + 12, Ui.WHITE);
+        ctx.drawTextWithShadow(textRenderer, ".", panelX + 12 + textRenderer.getWidth("VELOX"), panelY + 12, Ui.ACCENT);
+        ctx.drawTextWithShadow(textRenderer, " CLIENT", panelX + 12 + textRenderer.getWidth("VELOX."), panelY + 12, Ui.GREY);
         String hint = "Clique pour activer · F8 cache le HUD";
         ctx.drawTextWithShadow(textRenderer, hint, panelX + panelW - 12 - textRenderer.getWidth(hint), panelY + 12, Ui.GREY);
 
@@ -84,10 +85,10 @@ public class ModulesScreen extends Screen {
 
             // Pastille ON/OFF
             int pw = CARD_W - 12;
-            Ui.rect(ctx, x + 6, y + CARD_H - 13, pw, 9, on ? 0xFF2A6B48 : 0xFF5A2A2E);
+            Ui.rect(ctx, x + 6, y + CARD_H - 13, pw, 9, on ? 0xFF163D2A : 0xFF4A2228);
             String s = on ? "ACTIVÉ" : "DÉSACTIVÉ";
             ctx.drawTextWithShadow(textRenderer, s, x + 6 + (pw - textRenderer.getWidth(s)) / 2, y + CARD_H - 12,
-                    on ? Ui.ACCENT : Ui.RED);
+                    on ? Ui.GREEN : Ui.RED);
         }
 
         super.render(ctx, mouseX, mouseY, delta);

@@ -6,16 +6,16 @@
         <ResourceDictionary>
 
             <!-- Palette -->
-            <Color x:Key="BgColor">#0E0F13</Color>
-            <Color x:Key="AccentColor">#3DDC84</Color>
-            <SolidColorBrush x:Key="Bg" Color="#0E0F13"/>
-            <SolidColorBrush x:Key="Panel" Color="#16181E"/>
-            <SolidColorBrush x:Key="PanelHover" Color="#1E2129"/>
-            <SolidColorBrush x:Key="Stroke" Color="#262A33"/>
-            <SolidColorBrush x:Key="Text" Color="#F2F3F5"/>
-            <SolidColorBrush x:Key="Muted" Color="#8A8F9C"/>
-            <SolidColorBrush x:Key="Accent" Color="#3DDC84"/>
-            <SolidColorBrush x:Key="AccentDark" Color="#2FB86C"/>
+            <Color x:Key="BgColor">#0A0F1C</Color>
+            <Color x:Key="AccentColor">#2D7BFF</Color>
+            <SolidColorBrush x:Key="Bg" Color="#0A0F1C"/>
+            <SolidColorBrush x:Key="Panel" Color="#0E1424"/>
+            <SolidColorBrush x:Key="PanelHover" Color="#141C30"/>
+            <SolidColorBrush x:Key="Stroke" Color="#1F2840"/>
+            <SolidColorBrush x:Key="Text" Color="#E6EAF2"/>
+            <SolidColorBrush x:Key="Muted" Color="#6B7488"/>
+            <SolidColorBrush x:Key="Accent" Color="#2D7BFF"/>
+            <SolidColorBrush x:Key="AccentDark" Color="#1F63D6"/>
             <SolidColorBrush x:Key="Danger" Color="#FF5C5C"/>
 
             <FontFamily x:Key="MainFont">Segoe UI Variable Display, Segoe UI</FontFamily>
@@ -23,7 +23,7 @@
             <!-- Bouton principal (vert) -->
             <Style x:Key="PrimaryButton" TargetType="Button">
                 <Setter Property="Background" Value="{StaticResource Accent}"/>
-                <Setter Property="Foreground" Value="#0B0C0F"/>
+                <Setter Property="Foreground" Value="White"/>
                 <Setter Property="FontFamily" Value="{StaticResource MainFont}"/>
                 <Setter Property="FontWeight" Value="Bold"/>
                 <Setter Property="FontSize" Value="15"/>
@@ -126,7 +126,7 @@
                                     <Setter TargetName="Track" Property="Background" Value="{StaticResource Accent}"/>
                                     <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                                     <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
-                                    <Setter TargetName="Knob" Property="Fill" Value="#0B0C0F"/>
+                                    <Setter TargetName="Knob" Property="Fill" Value="White"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Opacity" Value="0.45"/>

@@ -193,7 +193,7 @@ namespace ForpakLauncher.Core
             if (changed) SaveIndex(mc, idx);
         }
 
-        /// <summary>Installe / met à jour Forpak Client + Fabric API depuis GitHub.</summary>
+        /// <summary>Installe / met à jour Velox Client (mod) + Fabric API depuis GitHub.</summary>
         public async Task EnsureForpakClientAsync(string mc, string remoteVersion, Action<string> status)
         {
             if (!SupportsForpakClient(mc)) return;
@@ -203,24 +203,33 @@ namespace ForpakLauncher.Core
             status?.Invoke("Vérification de Fabric API...");
             await InstallAsync(FabricApiId, mc);
 
-            var jar = Path.Combine(dir, $"forpakclient-{mc}.jar");
-            var verFile = Path.Combine(dir, ".forpakclient-version");
+            RemoveLegacy(mc);
+            var jar = Path.Combine(dir, $"veloxclient-{mc}.jar");
+            var verFile = Path.Combine(dir, ".veloxclient-version");
             var local = File.Exists(verFile) ? File.ReadAllText(verFile).Trim() : "";
 
             // remoteVersion == null : pas d'internet / pas de release -> on garde ce qu'on a
             if (File.Exists(jar) && (remoteVersion == null || local == remoteVersion)) return;
             if (remoteVersion == null) return;
 
-            status?.Invoke("Mise à jour de Forpak Client...");
+            status?.Invoke("Mise à jour de Velox Client...");
             await _dl.DownloadOneAsync(new DownloadJob
             {
-                Url = Updater.ReleaseFileUrl($"forpakclient-{mc}.jar"),
+                Url = Updater.ReleaseFileUrl($"veloxclient-{mc}.jar"),
                 Path = jar
             }, CancellationToken.None);
             File.WriteAllText(verFile, remoteVersion);
         }
 
         public static void RemoveForpakClient(string mc)
+        {
+            RemoveLegacy(mc);
+            try { File.Delete(Path.Combine(ModsDir(mc), $"veloxclient-{mc}.jar")); } catch { }
+            try { File.Delete(Path.Combine(ModsDir(mc), ".veloxclient-version")); } catch { }
+        }
+
+        /// <summary>Supprime l'ancien mod (nom Forpak Client).</summary>
+        private static void RemoveLegacy(string mc)
         {
             try { File.Delete(Path.Combine(ModsDir(mc), $"forpakclient-{mc}.jar")); } catch { }
             try { File.Delete(Path.Combine(ModsDir(mc), ".forpakclient-version")); } catch { }

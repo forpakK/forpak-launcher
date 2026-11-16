@@ -24,13 +24,16 @@ namespace ForpakLauncher
         private string _pendingCode;
         private bool _busy;
         private bool _loading = true;
+        private bool _gameRunning;
+        private bool _bgRunning;
+        private readonly Random _rng = new();
 
         public MainWindow()
         {
             InitializeComponent();
 
             _http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("ForpakLauncher/" + Updater.CurrentVersionText);
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("VeloxClient/" + Updater.CurrentVersionText);
             _settings = Settings.Load();
             _game = new GameManager(_http)
             {
@@ -47,7 +50,17 @@ namespace ForpakLauncher
             _loading = false;
             UpdateSubtitle();
 
-            Loaded += async (_, _) => await InitAsync();
+            Loaded += async (_, _) =>
+            {
+                if (_settings.AnimatedBackground) StartBackground();
+                await InitAsync();
+            };
+            // Pas d'animation quand la fenêtre est réduite : on économise le CPU
+            StateChanged += (_, _) =>
+            {
+                if (WindowState == WindowState.Minimized) StopBackground();
+                else if (_settings.AnimatedBackground && !_gameRunning) StartBackground();
+            };
         }
 
         // ------------------------------------------------------------- démarrage
@@ -107,6 +120,81 @@ namespace ForpakLauncher
                 .ToList();
             VersionCombo.ItemsSource = list;
             VersionCombo.SelectedItem = list.FirstOrDefault(v => v.Id == previous) ?? list.FirstOrDefault();
+        }
+
+        // ------------------------------------------------------------- fond animé
+
+        private void StartBackground()
+        {
+            if (_bgRunning) return;
+            _bgRunning = true;
+
+            // Parallax : chaque couche défile à sa vitesse (boucle infinie)
+            Scroll(StarsBrush, 400);
+            Scroll(Layer1Brush, 240);
+            Scroll(Layer2Brush, 150);
+            Scroll(Layer3Brush, 90);
+            Scroll(Layer4Brush, 50);
+
+            // Étoiles qui scintillent
+            StarsRect.BeginAnimation(OpacityProperty, Slow(new DoubleAnimation(0.55, 1, TimeSpan.FromSeconds(2.6))
+            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }));
+
+            // Logo qui flotte
+            HeroFloat.BeginAnimation(TranslateTransform.YProperty, Slow(new DoubleAnimation(-5, 5, TimeSpan.FromSeconds(2.4))
+            {
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            }));
+
+            // Particules bleues qui montent
+            Particles.Children.Clear();
+            double w = Math.Max(800, ActualWidth), h = Math.Max(500, ActualHeight);
+            for (int i = 0; i < 26; i++)
+            {
+                double size = _rng.Next(2, 5);
+                var r = new System.Windows.Shapes.Rectangle
+                {
+                    Width = size, Height = size,
+                    Fill = new SolidColorBrush(i % 3 == 0 ? Color.FromRgb(120, 200, 255) : Color.FromRgb(45, 123, 255)),
+                    Opacity = 0.25 + _rng.NextDouble() * 0.5
+                };
+                Canvas.SetLeft(r, _rng.NextDouble() * w);
+                Particles.Children.Add(r);
+                var dur = TimeSpan.FromSeconds(14 + _rng.NextDouble() * 16);
+                var up = Slow(new DoubleAnimation(h + 10, -20, dur)
+                {
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    BeginTime = TimeSpan.FromSeconds(-_rng.NextDouble() * dur.TotalSeconds)
+                });
+                r.BeginAnimation(Canvas.TopProperty, up);
+            }
+        }
+
+        private void StopBackground()
+        {
+            if (!_bgRunning) return;
+            _bgRunning = false;
+            foreach (var b in new[] { StarsBrush, Layer1Brush, Layer2Brush, Layer3Brush, Layer4Brush })
+                b.BeginAnimation(TileBrush.ViewportProperty, null);
+            StarsRect.BeginAnimation(OpacityProperty, null);
+            HeroFloat.BeginAnimation(TranslateTransform.YProperty, null);
+            foreach (UIElement el in Particles.Children) el.BeginAnimation(Canvas.TopProperty, null);
+            Particles.Children.Clear();
+        }
+
+        private static void Scroll(ImageBrush brush, double seconds)
+        {
+            var anim = new RectAnimation(new Rect(0, 0, 1920, 540), new Rect(-1920, 0, 1920, 540),
+                TimeSpan.FromSeconds(seconds)) { RepeatBehavior = RepeatBehavior.Forever };
+            brush.BeginAnimation(TileBrush.ViewportProperty, Slow(anim));
+        }
+
+        /// <summary>30 images/s suffisent pour un fond : moins de CPU.</summary>
+        private static T Slow<T>(T anim) where T : Timeline
+        {
+            Timeline.SetDesiredFrameRate(anim, 30);
+            return anim;
         }
 
         // ------------------------------------------------------------- navigation
@@ -180,7 +268,7 @@ namespace ForpakLauncher
             if (SubtitleText == null) return;
             if (FabricSwitch.IsChecked != true) SubtitleText.Text = "Minecraft vanilla, sans mods.";
             else if (PerfSwitch.IsChecked == true && ClientSwitch.IsChecked == true)
-                SubtitleText.Text = "Pack FPS + modules PvP activés. Shift droit en jeu pour le menu.";
+                SubtitleText.Text = "Pack FPS + modules PvP activés · Shift droit en jeu pour le menu.";
             else if (PerfSwitch.IsChecked == true) SubtitleText.Text = "Pack FPS activé : Sodium, Lithium et compagnie.";
             else SubtitleText.Text = "Fabric activé : ajoute tes mods dans l'onglet Mods.";
         }
@@ -313,7 +401,7 @@ namespace ForpakLauncher
                             catch (Exception ex)
                             {
                                 Log.Write("Forpak Client : " + ex.Message);
-                                StatusText.Text = "Modules indisponibles, lancement sans eux.";
+                                StatusText.Text = "Modules Velox indisponibles, lancement sans eux.";
                             }
                         }
                         else ModManager.RemoveForpakClient(version.Id);
@@ -327,8 +415,12 @@ namespace ForpakLauncher
                 StatusText.Text = "Lancement de Minecraft " + launchId + "...";
                 SetProgress(-1);
                 var proc = _game.Launch(launchId, _account, _settings, java, ModManager.GameDir(version.Id, fabric));
+                _gameRunning = true;
+                StopBackground(); // le launcher ne consomme rien pendant que tu joues
                 proc.Exited += (_, _) => Dispatcher.Invoke(() =>
                 {
+                    _gameRunning = false;
+                    if (_settings.AnimatedBackground) StartBackground();
                     StatusText.Text = proc.ExitCode == 0 ? "Partie terminée." :
                         $"Le jeu s'est arrêté (code {proc.ExitCode}). Détails : {Paths.LogFile}";
                     if (!IsVisible) { Show(); Activate(); }
@@ -386,6 +478,7 @@ namespace ForpakLauncher
             CloseSwitch.IsChecked = _settings.CloseOnLaunch;
             ForpakClientSwitch.IsChecked = _settings.ForpakClient;
             PerfSettingSwitch.IsChecked = _settings.PerformanceMode;
+            AnimSwitch.IsChecked = _settings.AnimatedBackground;
             SavedText.Visibility = Visibility.Collapsed;
         }
 
@@ -407,7 +500,9 @@ namespace ForpakLauncher
             _settings.ExtraJvmArgs = JvmBox.Text.Trim();
             _settings.ShowSnapshots = SnapshotSwitch.IsChecked == true;
             _settings.CloseOnLaunch = CloseSwitch.IsChecked == true;
+            _settings.AnimatedBackground = AnimSwitch.IsChecked == true;
             _settings.Save();
+            if (_settings.AnimatedBackground && !_gameRunning) StartBackground(); else StopBackground();
 
             // Les interrupteurs de l'accueil suivent
             ClientSwitch.IsChecked = ForpakClientSwitch.IsChecked == true;

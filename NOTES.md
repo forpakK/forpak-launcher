@@ -1,1 +1,1 @@
-Nouveau design style Lunar/Dawn, pack FPS (Sodium, Lithium, FerriteCore...) et Forpak Client v2 : éditeur de HUD (Shift droit), ToggleSprint (G), ToggleSneak (V), ping, reach, combo, boussole, compteur de totems adverses et crystal optimizer.
+Forpak devient **Velox Client** : nouveau logo, barre latérale, lancement au centre et fond animé. Tes réglages, ton compte et tes mods sont gardés.

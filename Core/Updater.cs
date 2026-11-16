@@ -51,9 +51,9 @@ namespace ForpakLauncher.Core
         public async Task UpdateLauncherAsync(IProgress<double> progress)
         {
             var current = Environment.ProcessPath;
-            var tmp = Path.Combine(Path.GetTempPath(), "ForpakLauncher_update.exe");
+            var tmp = Path.Combine(Path.GetTempPath(), "VeloxClient_update.exe");
 
-            using (var res = await _http.GetAsync(ReleaseFileUrl("ForpakLauncher.exe"), HttpCompletionOption.ResponseHeadersRead))
+            using (var res = await _http.GetAsync(ReleaseFileUrl("VeloxClient.exe"), HttpCompletionOption.ResponseHeadersRead))
             {
                 res.EnsureSuccessStatusCode();
                 var total = res.Content.Headers.ContentLength ?? 0;
@@ -71,7 +71,7 @@ namespace ForpakLauncher.Core
             }
 
             // Petit script qui attend la fermeture du launcher, remplace le .exe et le relance
-            var bat = Path.Combine(Path.GetTempPath(), "forpak_update.bat");
+            var bat = Path.Combine(Path.GetTempPath(), "velox_update.bat");
             File.WriteAllText(bat,
                 "@echo off\r\n" +
                 "timeout /t 2 /nobreak >nul\r\n" +

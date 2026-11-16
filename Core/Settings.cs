@@ -6,9 +6,17 @@ namespace ForpakLauncher.Core
 {
     public static class Paths
     {
-        // Tout est rangé dans %APPDATA%\.forpaklauncher
-        public static readonly string Root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".forpaklauncher");
+        // Tout est rangé dans %APPDATA%\.veloxclient
+        public static readonly string Root = InitRoot();
+
+        private static string InitRoot()
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var root = Path.Combine(appData, ".veloxclient");
+            var old = Path.Combine(appData, ".forpaklauncher");   // ancien nom : on récupère tout
+            try { if (!Directory.Exists(root) && Directory.Exists(old)) Directory.Move(old, root); } catch { }
+            return root;
+        }
 
         public static string Versions => Path.Combine(Root, "versions");
         public static string Libraries => Path.Combine(Root, "libraries");
@@ -30,6 +38,7 @@ namespace ForpakLauncher.Core
         public bool UseFabric { get; set; } = true;
         public bool ForpakClient { get; set; } = true;   // modules PvP (1.21.1 / 1.21.11)
         public bool PerformanceMode { get; set; } = true; // pack FPS (Sodium, Lithium...)
+        public bool AnimatedBackground { get; set; } = true;
         public bool CloseOnLaunch { get; set; } = false;
         public string LastVersion { get; set; } = "";
 

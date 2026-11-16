@@ -1,4 +1,4 @@
-name: Build Forpak Launcher + Forpak Client
+name: Build Velox Client
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
         with:
           gradle-version: '9.8.2'
 
-      - name: Build Forpak Client ${{ matrix.mc }}
+      - name: Build mod Velox Client ${{ matrix.mc }}
         env:
           MOD_VERSION: ${{ env.APP_VERSION }}
         run: |
@@ -39,6 +39,8 @@ jobs:
           gradle -p "$dir" build --no-daemon --stacktrace
           mkdir -p out
           jar=$(ls "$dir"/build/libs/*.jar | grep -v -- '-sources' | head -n 1)
+          cp "$jar" "out/veloxclient-${{ matrix.mc }}.jar"
+          # copie avec l'ancien nom pour les vieux launchers
           cp "$jar" "out/forpakclient-${{ matrix.mc }}.jar"
 
       - uses: actions/upload-artifact@v4
@@ -55,13 +57,18 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish (un seul .exe)
-        run: dotnet publish ForpakLauncher.csproj -c Release -o out -p:Version=${{ env.APP_VERSION }}
+      - name: Publish VeloxClient.exe
+        run: |
+          dotnet publish ForpakLauncher.csproj -c Release -o out -p:Version=${{ env.APP_VERSION }}
+          # copie avec l'ancien nom : les launchers Forpak se mettent à jour vers Velox
+          Copy-Item out/VeloxClient.exe out/ForpakLauncher.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: launcher
-          path: out/ForpakLauncher.exe
+          path: |
+            out/VeloxClient.exe
+            out/ForpakLauncher.exe
 
   release:
     needs: [ mods, launcher ]
@@ -96,10 +103,13 @@ jobs:
         with:
           tag_name: latest
           target_commitish: ${{ github.sha }}
-          name: Forpak Launcher v${{ env.APP_VERSION }}
+          name: Velox Client v${{ env.APP_VERSION }}
           body_path: NOTES.md
           files: |
+            dist/VeloxClient.exe
             dist/ForpakLauncher.exe
+            dist/veloxclient-1.21.1.jar
+            dist/veloxclient-1.21.11.jar
             dist/forpakclient-1.21.1.jar
             dist/forpakclient-1.21.11.jar
             dist/version.txt

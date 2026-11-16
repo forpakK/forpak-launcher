@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "forpakclient",
+  "id": "veloxclient",
   "version": "${version}",
-  "name": "Forpak Client",
-  "description": "Modules PvP du Forpak Launcher : HUD, keystrokes, zoom, crystal optimizer.",
+  "name": "Velox Client",
+  "description": "Modules PvP du Velox Client : HUD déplaçable, keystrokes, zoom, ToggleSprint, crystal optimizer.",
   "authors": ["forpak"],
   "license": "MIT",
   "environment": "client",
