@@ -1,7 +1,10 @@
 package fr.forpak.client;
 
 import fr.forpak.client.hud.Hud;
-import fr.forpak.client.hud.ModulesScreen;
+import fr.forpak.client.hud.VeloxMenuScreen;
+import fr.forpak.client.hud.VeloxTitleScreen;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.minecraft.client.gui.screen.TitleScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
@@ -24,6 +27,7 @@ public class ForpakClient implements ClientModInitializer {
             if (world.isClient()) Stats.onAttack(player, entity);
             return CrystalOptimizer.onAttack(player, world, hand, entity, hit);
         });
+        UseBlockCallback.EVENT.register(AnchorOptimizer::onUse);
         ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
     }
 
@@ -48,8 +52,12 @@ public class ForpakClient implements ClientModInitializer {
 
         Stats.tick(client);
 
+        // Menu principal Velox à la place de l'écran titre de Minecraft
+        if (CONFIG.customMenu && client.currentScreen instanceof TitleScreen)
+            client.setScreen(new VeloxTitleScreen());
+
         if (inGame) {
-            if (menu) client.setScreen(new ModulesScreen());
+            if (menu) client.setScreen(new VeloxMenuScreen(null));
             if (panic) Hud.hidden = !Hud.hidden;
             if (sprint && CONFIG.toggleSprintModule) { CONFIG.sprintToggled = !CONFIG.sprintToggled; CONFIG.save(); }
             if (sneak && CONFIG.toggleSneakModule) { CONFIG.sneakToggled = !CONFIG.sneakToggled; CONFIG.save(); }

@@ -27,6 +27,12 @@ public final class Hud {
     private Hud() { }
 
     public static boolean hidden = false; // F8 : tout cacher
+
+    // Style de l'élément en cours de dessin (taille, fond, couleur)
+    static fr.forpak.client.Config.ElementStyle current;
+    static int bg() { return current == null || current.background ? bg() : 0x00000000; }
+    static int accent() { return current == null ? accent() : current.color; }
+    static int pressed() { return (accent() & 0x00FFFFFF) | 0xC8000000; }
     public static final List<HudElement> ELEMENTS = new ArrayList<>();
 
     private static final EquipmentSlot[] ARMOR = {
@@ -60,6 +66,12 @@ public final class Hud {
         ELEMENTS.add(new TextElement("combo", "Combo", true, 0.56f, 0.55f, "Combo", mc -> String.valueOf(Stats.combo)) {
             @Override public boolean visible(MinecraftClient mc) { return Stats.combo > 1; }
         });
+        ELEMENTS.add(new TextElement("kb", "Indicateur KB", true, 0.56f, 0.60f, "KB", mc ->
+                (Stats.lastHitSprint ? "§aSprint hit" : "§cSans sprint") + " §7(" + Stats.sprintPercent() + "% W-tap)") {
+            @Override public boolean visible(MinecraftClient mc) {
+                return System.currentTimeMillis() - Stats.lastHitTimeKb < 2500;
+            }
+        });
         ELEMENTS.add(new TextElement("toggles", "Statut Sprint", true, 0.005f, 0.96f, "", Hud::toggleText) {
             @Override public boolean visible(MinecraftClient mc) { return !toggleText(mc).isEmpty(); }
         });
@@ -83,14 +95,19 @@ public final class Hud {
         for (HudElement e : ELEMENTS) {
             if (!e.isEnabled()) continue;
             if (!editing && !e.visible(mc)) continue;
-            int w = e.width(mc, editing), h = e.height(mc, editing);
+            current = ForpakClient.CONFIG.style(e.id);
+            float scale = Math.max(0.5f, Math.min(2.5f, current.scale));
+            int w = Math.round(e.width(mc, editing) * scale), h = Math.round(e.height(mc, editing) * scale);
             if (w <= 0 || h <= 0) continue;
             float[] p = e.position();
             int x = Math.round(p[0] * Math.max(0, sw - w));
             int y = Math.round(p[1] * Math.max(0, sh - h));
             e.lastX = x; e.lastY = y; e.lastW = w; e.lastH = h;
-            e.render(ctx, mc, x, y, editing);
+            fr.forpak.client.HudHook.push(ctx, x, y, scale);
+            e.render(ctx, mc, 0, 0, editing);
+            fr.forpak.client.HudHook.pop(ctx);
         }
+        current = null;
     }
 
     // ======================================================================= éléments
@@ -126,10 +143,10 @@ public final class Hud {
             TextRenderer tr = mc.textRenderer;
             String v = value.apply(mc);
             if (v.isEmpty() && editing) v = name;
-            Ui.rect(ctx, x, y, width(mc, editing), 13, Ui.BG);
+            Ui.rect(ctx, x, y, width(mc, editing), 13, bg());
             int tx = x + 4;
             if (!label.isEmpty()) {
-                ctx.drawTextWithShadow(tr, label, tx, y + 3, Ui.ACCENT);
+                ctx.drawTextWithShadow(tr, label, tx, y + 3, accent());
                 tx += tr.getWidth(label + " ");
             }
             ctx.drawTextWithShadow(tr, v, tx, y + 3, Ui.WHITE);
@@ -169,13 +186,13 @@ public final class Hud {
             mouse(ctx, tr, mc.options.useKey.isPressed(), "RMB", Stats.cpsRight(), x + half + G, y2, half, S);
             boolean jump = mc.options.jumpKey.isPressed();
             int y3 = y2 + S + G;
-            Ui.rect(ctx, x, y3, w3, 12, jump ? Ui.ACCENT_BG : Ui.BG);
+            Ui.rect(ctx, x, y3, w3, 12, jump ? pressed() : bg());
             ctx.fill(x + w3 / 2 - 14, y3 + 5, x + w3 / 2 + 14, y3 + 7, Ui.WHITE);
         }
 
         private static void key(DrawContext ctx, TextRenderer tr, KeyBinding kb, int x, int y, int w, int h) {
             boolean down = kb.isPressed();
-            Ui.rect(ctx, x, y, w, h, down ? Ui.ACCENT_BG : Ui.BG);
+            Ui.rect(ctx, x, y, w, h, down ? pressed() : bg());
             String t = kb.getBoundKeyLocalizedText().getString().toUpperCase();
             if (t.length() > 3) t = t.substring(0, 3);
             ctx.drawTextWithShadow(tr, t, x + (w - tr.getWidth(t)) / 2, y + (h - 8) / 2, Ui.WHITE);
@@ -183,7 +200,7 @@ public final class Hud {
 
         private static void mouse(DrawContext ctx, TextRenderer tr, boolean down, String label, int cps,
                                   int x, int y, int w, int h) {
-            Ui.rect(ctx, x, y, w, h, down ? Ui.ACCENT_BG : Ui.BG);
+            Ui.rect(ctx, x, y, w, h, down ? pressed() : bg());
             ctx.drawTextWithShadow(tr, label, x + (w - tr.getWidth(label)) / 2, y + 3, Ui.WHITE);
             String c = cps + " CPS";
             ctx.drawTextWithShadow(tr, c, x + (w - tr.getWidth(c)) / 2, y + 12, down ? Ui.WHITE : Ui.GREY);
@@ -201,7 +218,7 @@ public final class Hud {
 
         @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
             int w = 170, cx = x + w / 2;
-            Ui.rect(ctx, x, y, w, 14, Ui.BG);
+            Ui.rect(ctx, x, y, w, 14, bg());
             float yaw = mc.player.getYaw();
             for (int i = 0; i < 8; i++) {
                 float rel = MathHelper.wrapDegrees(i * 45f - yaw);
@@ -211,7 +228,7 @@ public final class Hud {
                 int col = d.length() == 1 ? Ui.WHITE : Ui.GREY;
                 ctx.drawTextWithShadow(mc.textRenderer, d, px - mc.textRenderer.getWidth(d) / 2, y + 3, col);
             }
-            ctx.fill(cx, y + 11, cx + 1, y + 14, Ui.ACCENT);
+            ctx.fill(cx, y + 11, cx + 1, y + 14, accent());
         }
     }
 
@@ -232,12 +249,12 @@ public final class Hud {
                     if (s.isDamageable()) {
                         int left = s.getMaxDamage() - s.getDamage();
                         int pct = left * 100 / Math.max(1, s.getMaxDamage());
-                        int col = pct > 50 ? Ui.ACCENT : pct > 20 ? Ui.ORANGE : Ui.RED;
+                        int col = pct > 50 ? accent() : pct > 20 ? Ui.ORANGE : Ui.RED;
                         String t = String.valueOf(left);
                         ctx.drawTextWithShadow(mc.textRenderer, t, x + 52 - 20 - mc.textRenderer.getWidth(t), ry + 4, col);
                     }
                 } else if (editing) {
-                    Ui.rect(ctx, x + 52 - 17, ry, 16, 16, Ui.BG);
+                    Ui.rect(ctx, x + 52 - 17, ry, 16, 16, bg());
                 }
                 ry += 18;
             }
@@ -274,7 +291,7 @@ public final class Hud {
         @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
             int w = width(mc, editing), ry = y;
             for (String[] l : lines(mc, editing)) {
-                Ui.rect(ctx, x, ry, w, 13, Ui.BG);
+                Ui.rect(ctx, x, ry, w, 13, bg());
                 ctx.drawTextWithShadow(mc.textRenderer, l[0], x + 4, ry + 3, Ui.WHITE);
                 ctx.drawTextWithShadow(mc.textRenderer, l[1], x + w - 4 - mc.textRenderer.getWidth(l[1]), ry + 3,
                         l[2].equals("1") ? Ui.RED : Ui.GREY);
@@ -301,7 +318,7 @@ public final class Hud {
         @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
             int bx = x;
             for (Item it : shown(mc, editing)) {
-                Ui.rect(ctx, bx, y, 28, 20, Ui.BG);
+                Ui.rect(ctx, bx, y, 28, 20, bg());
                 ctx.drawItem(new ItemStack(it), bx + 2, y + 2);
                 String t = String.valueOf(count(mc, it));
                 ctx.drawTextWithShadow(mc.textRenderer, t, bx + 27 - mc.textRenderer.getWidth(t), y + 11, Ui.WHITE);
@@ -349,7 +366,7 @@ public final class Hud {
         @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
             int w = width(mc, editing), ry = y;
             for (String l : lines(editing)) {
-                Ui.rect(ctx, x, ry, w, 13, Ui.BG);
+                Ui.rect(ctx, x, ry, w, 13, bg());
                 ctx.drawTextWithShadow(mc.textRenderer, l, x + 4, ry + 3, Ui.WHITE);
                 ry += 14;
             }

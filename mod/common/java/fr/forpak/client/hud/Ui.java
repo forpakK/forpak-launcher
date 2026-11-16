@@ -38,4 +38,19 @@ public final class Ui {
     public static boolean inside(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
+
+    /**
+     * Gros bouton façon Lunar (dessiné à la main). Renvoie true si on vient de cliquer dessus.
+     * primary = bouton vert principal.
+     */
+    public static boolean button(DrawContext ctx, net.minecraft.client.font.TextRenderer tr, String label,
+                                 int x, int y, int w, int h, int mouseX, int mouseY, boolean clicked, boolean primary) {
+        boolean hover = inside(mouseX, mouseY, x, y, w, h);
+        int bg = primary ? (hover ? 0xFF19BE91 : 0xFF14A880) : (hover ? 0xE61C2742 : 0xD80D1526);
+        rect(ctx, x, y, w, h, bg);
+        if (!primary) outline(ctx, x, y, w, h, hover ? ACCENT : 0x8022304A);
+        else if (hover) outline(ctx, x - 1, y - 1, w + 2, h + 2, 0x803EE6A8);
+        ctx.drawTextWithShadow(tr, label, x + (w - tr.getWidth(label)) / 2, y + (h - 8) / 2, WHITE);
+        return hover && clicked;
+    }
 }

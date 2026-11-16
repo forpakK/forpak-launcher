@@ -16,7 +16,12 @@ public class Config {
     /** Position des éléments du HUD (id -> {x, y} entre 0 et 1) */
     public Map<String, float[]> pos = new HashMap<>();
 
+    /** Style de chaque élément du HUD (taille, fond, couleur) */
+    public Map<String, ElementStyle> styles = new HashMap<>();
+
     public boolean crystalOptimizer = true;
+    public boolean anchorOptimizer = true;
+    public boolean customMenu = true;
     public boolean zoom = true;
     public int zoomFov = 30;
     public boolean toggleSprintModule = true;
@@ -25,6 +30,16 @@ public class Config {
     // État des toggles (sauvegardé pour garder le sprint entre deux parties)
     public boolean sprintToggled = false;
     public boolean sneakToggled = false;
+
+    public static class ElementStyle {
+        public float scale = 1f;
+        public boolean background = true;
+        public int color = 0xFF3EE6A8;
+    }
+
+    public ElementStyle style(String id) {
+        return styles.computeIfAbsent(id, k -> new ElementStyle());
+    }
 
     public boolean isOn(String id, boolean def) {
         Boolean b = enabled.get(id);
@@ -52,6 +67,7 @@ public class Config {
                 if (c != null) {
                     if (c.enabled == null) c.enabled = new HashMap<>();
                     if (c.pos == null) c.pos = new HashMap<>();
+                    if (c.styles == null) c.styles = new HashMap<>();
                     return c;
                 }
             }

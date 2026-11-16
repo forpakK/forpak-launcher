@@ -1,1 +1,1 @@
-Tu restes connecté : le launcher garde ta session (chiffrée) et ne te déconnecte plus en cas de souci réseau.
+Tu restes connecté. En jeu : nouveau menu principal Velox (aurores et neige), Shift droit ouvre le menu Velox avec le logo. Clic droit sur un module = options (taille, fond, couleur). Nouveaux modules : Anchor Optimizer et Indicateur KB (sprint hit / W-tap).

@@ -55,6 +55,18 @@ public final class Stats {
     private static int lastTargetId = -1;
     private static long lastHitTime;
 
+    // --- Indicateur KB : le coup était-il un sprint hit (plus de knockback pour l'adversaire) ?
+    public static boolean lastHitSprint;
+    public static long lastHitTimeKb;
+    private static final Deque<Boolean> LAST_HITS = new ArrayDeque<>();
+
+    public static int sprintPercent() {
+        if (LAST_HITS.isEmpty()) return 0;
+        int n = 0;
+        for (boolean b : LAST_HITS) if (b) n++;
+        return n * 100 / LAST_HITS.size();
+    }
+
     // --- Totems (nom du joueur -> nombre de totems utilisés)
     public static final Map<String, Integer> POPS = new LinkedHashMap<>();
     public static final Map<String, Long> POP_TIME = new LinkedHashMap<>();
@@ -82,6 +94,11 @@ public final class Stats {
         double cz = clamp(eye.z, b.minZ, b.maxZ);
         lastReach = eye.distanceTo(new Vec3d(cx, cy, cz));
         lastReachTime = System.currentTimeMillis();
+
+        lastHitSprint = player.isSprinting();
+        lastHitTimeKb = System.currentTimeMillis();
+        LAST_HITS.addLast(lastHitSprint);
+        while (LAST_HITS.size() > 20) LAST_HITS.pollFirst();
 
         long now = System.currentTimeMillis();
         if (target.getId() == lastTargetId && now - lastHitTime < 2000) combo++;
