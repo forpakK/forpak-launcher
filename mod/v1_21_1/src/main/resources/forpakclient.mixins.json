@@ -9,7 +9,10 @@
     "CrosshairMixin",
     "FreelookEntityMixin",
     "FreelookCameraMixin",
-    "HitColorMixin"
+    "HitColorMixin",
+    "WeatherWorldMixin",
+    "WeatherBiomeMixin",
+    "ParticlesMixin"
   ],
   "injectors": {
     "defaultRequire": 0

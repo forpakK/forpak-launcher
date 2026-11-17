@@ -1157,6 +1157,16 @@
                                           Content="Pack FPS (Sodium, Lithium...)" Margin="0,12,0,0"/>
                                 <CheckBox x:Name="AnimSwitch" Style="{StaticResource Switch}"
                                           Content="Fond animé" Margin="0,12,0,0"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBlock Text="Temps du fond" VerticalAlignment="Center" Margin="0,0,12,6"
+                                               Foreground="{StaticResource Muted}"/>
+                                    <RadioButton x:Name="WeatherSnow" Style="{StaticResource Pill}" GroupName="bgweather"
+                                                 Content="Neige" Tag="snow" Checked="BgWeather_Checked"/>
+                                    <RadioButton x:Name="WeatherRain" Style="{StaticResource Pill}" GroupName="bgweather"
+                                                 Content="Pluie" Tag="rain" Checked="BgWeather_Checked"/>
+                                    <RadioButton x:Name="WeatherNone" Style="{StaticResource Pill}" GroupName="bgweather"
+                                                 Content="Rien" Tag="none" Checked="BgWeather_Checked"/>
+                                </StackPanel>
                                 <CheckBox x:Name="DiscordSwitch" Style="{StaticResource Switch}"
                                           Content="Statut Discord (« Joue à Velox Client »)" Margin="0,12,0,0"/>
                                 <CheckBox x:Name="SnapshotSwitch" Style="{StaticResource Switch}" Content="Afficher les snapshots"

@@ -201,9 +201,33 @@ namespace ForpakLauncher
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
             }));
 
-            // Neige (pixel art) : les gros flocons tombent plus vite, comme s'ils étaient plus proches
+            // Météo du fond : neige, pluie ou rien
             Particles.Children.Clear();
             double w = Math.Max(800, ActualWidth), h = Math.Max(500, ActualHeight);
+            if (_settings.BgWeather == "rain")
+            {
+                for (int i = 0; i < 90; i++)
+                {
+                    double len = 10 + _rng.NextDouble() * 12;
+                    var drop = new System.Windows.Shapes.Rectangle
+                    {
+                        Width = 1.5, Height = len,
+                        Fill = new SolidColorBrush(Color.FromRgb(156, 200, 255)),
+                        Opacity = 0.25 + _rng.NextDouble() * 0.35,
+                        RenderTransform = new RotateTransform(12)
+                    };
+                    double x0 = _rng.NextDouble() * (w + 120);
+                    Particles.Children.Add(drop);
+                    var fallTime = TimeSpan.FromSeconds(0.9 + _rng.NextDouble() * 0.6);
+                    var begin = TimeSpan.FromSeconds(-_rng.NextDouble() * 2);
+                    drop.BeginAnimation(Canvas.TopProperty, Slow(new DoubleAnimation(-30, h + 30, fallTime)
+                    { RepeatBehavior = RepeatBehavior.Forever, BeginTime = begin }));
+                    drop.BeginAnimation(Canvas.LeftProperty, Slow(new DoubleAnimation(x0, x0 - (h + 60) * 0.21, fallTime)
+                    { RepeatBehavior = RepeatBehavior.Forever, BeginTime = begin }));
+                }
+                return;
+            }
+            if (_settings.BgWeather == "none") return;
             for (int i = 0; i < 70; i++)
             {
                 int size = _rng.Next(10) < 6 ? 2 : _rng.Next(10) < 7 ? 3 : 4;
@@ -611,12 +635,26 @@ namespace ForpakLauncher
             ForpakClientSwitch.IsChecked = _settings.ForpakClient;
             PerfSettingSwitch.IsChecked = _settings.PerformanceMode;
             AnimSwitch.IsChecked = _settings.AnimatedBackground;
+            WeatherSnow.IsChecked = _settings.BgWeather == "snow";
+            WeatherRain.IsChecked = _settings.BgWeather == "rain";
+            WeatherNone.IsChecked = _settings.BgWeather == "none";
             DiscordSwitch.IsChecked = _settings.DiscordStatus;
             CfKeyBox.Text = _settings.CurseForgeApiKey;
             CfKeyHint.Text = CurseForge.BuiltInKey != null
                 ? "Une clé est déjà intégrée au launcher : laisse vide, ou mets la tienne pour la remplacer."
                 : "À créer sur console.curseforge.com. Sans clé, seul Modrinth marche.";
             SavedText.Visibility = Visibility.Collapsed;
+        }
+
+        private void BgWeather_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!IsLoaded || sender is not RadioButton rb) return;
+            var mode = (string)rb.Tag;
+            if (_settings.BgWeather == mode) return;
+            _settings.BgWeather = mode;
+            _settings.Save();
+            // On relance le fond pour voir le changement tout de suite
+            if (_bgRunning) { StopBackground(); StartBackground(); }
         }
 
         private void Ram_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)

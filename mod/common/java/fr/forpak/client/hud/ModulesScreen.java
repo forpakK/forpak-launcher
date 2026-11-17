@@ -41,6 +41,12 @@ public class ModulesScreen extends Screen {
                 CrosshairScreen::new));
         modules.add(new Module("Cape Velox", "Visible par Velox", () -> c.cape, v -> { c.cape = v; c.save(); }, null));
         modules.add(new Module("Freelook", "Maintenir Alt gauche", () -> c.freelook, v -> { c.freelook = v; c.save(); }, null));
+        modules.add(new Module("Météo perso", "Clic droit : choisir", () -> c.weatherMode != 0, v -> {
+            if (v) c.weatherMode = c.lastWeatherMode == 0 ? 1 : c.lastWeatherMode;
+            else { if (c.weatherMode != 0) c.lastWeatherMode = c.weatherMode; c.weatherMode = 0; }
+            c.save();
+        }, WeatherScreen::new));
+        modules.add(new Module("Sans particules", "Plus de FPS", () -> c.noParticles, v -> { c.noParticles = v; c.save(); }, null));
         modules.add(new Module("Hit color", "Clic droit : couleur", () -> c.hitColorEnabled,
                 v -> { c.hitColorEnabled = v; c.save(); }, HitColorScreen::new));
         modules.add(new Module("Crystal Optimizer", "Crystal PvP", () -> c.crystalOptimizer, v -> { c.crystalOptimizer = v; c.save(); }, null));

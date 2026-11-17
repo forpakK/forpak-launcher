@@ -24,6 +24,9 @@ public class Config {
     public boolean customMenu = true;
     public boolean cape = true;
     public boolean freelook = true;
+    public int weatherMode = 0;       // 0 normale, 1 clair, 2 pluie, 3 neige
+    public int lastWeatherMode = 1;   // pour réactiver le module avec le dernier choix
+    public boolean noParticles = false;
     public boolean hitColorEnabled = false;
     public int hitColor = 0xFF3EE6A8;
 
