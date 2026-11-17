@@ -46,6 +46,8 @@ public class VeloxTitleScreen extends Screen {
 
         String left = "Velox Client · Minecraft " + mcVersion;
         ctx.drawTextWithShadow(textRenderer, left, 4, height - 12, 0xB0FFFFFF);
+        ctx.drawTextWithShadow(textRenderer, "made by ", 4, height - 23, 0x90FFFFFF);
+        ctx.drawTextWithShadow(textRenderer, "forpak", 4 + textRenderer.getWidth("made by "), height - 23, Ui.ACCENT);
         String right = "Shift droit en jeu : menu Velox";
         ctx.drawTextWithShadow(textRenderer, right, width - 4 - textRenderer.getWidth(right), height - 12, 0xB0FFFFFF);
     }

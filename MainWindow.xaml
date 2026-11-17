@@ -352,7 +352,10 @@
                                 </StackPanel>
                             </Grid>
                         </Button>
-                        <TextBlock x:Name="VersionLabel" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="4,10,0,0"/>
+                        <DockPanel Margin="4,10,0,0">
+                            <TextBlock DockPanel.Dock="Right" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,0,4,0"><Run Text="made by "/><Run Text="forpak" Foreground="{StaticResource Accent}" FontWeight="SemiBold"/></TextBlock>
+                            <TextBlock x:Name="VersionLabel" FontSize="10.5" Foreground="{StaticResource Muted}"/>
+                        </DockPanel>
                     </StackPanel>
 
                     <!-- Navigation (défile si la fenêtre est petite) -->

@@ -1,1 +1,1 @@
-Nouvelle page Logs : crashs et journaux en un clic, bouton Copier et un X pour supprimer. Si le jeu plante, le launcher te propose le rapport. Menu des modules refait (plus propre, plus de crash dans « Tout »).
+Petit « made by forpak » ajouté dans le launcher et sur l’écran titre en jeu.
