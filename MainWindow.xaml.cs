@@ -642,6 +642,7 @@ namespace ForpakLauncher
             WeatherRain.IsChecked = _settings.BgWeather == "rain";
             WeatherNone.IsChecked = _settings.BgWeather == "none";
             DiscordSwitch.IsChecked = _settings.DiscordStatus;
+            BoostSwitch.IsChecked = _settings.LauncherBoost;
             CfKeyBox.Text = _settings.CurseForgeApiKey;
             CfKeyHint.Text = CurseForge.BuiltInKey != null
                 ? "Une clé est déjà intégrée au launcher : laisse vide, ou mets la tienne pour la remplacer."
@@ -680,6 +681,7 @@ namespace ForpakLauncher
             _settings.CloseOnLaunch = CloseSwitch.IsChecked == true;
             _settings.AnimatedBackground = AnimSwitch.IsChecked == true;
             _settings.DiscordStatus = DiscordSwitch.IsChecked == true;
+            _settings.LauncherBoost = BoostSwitch.IsChecked == true;
             _discord.Enabled = _settings.DiscordStatus;
             if (_discord.Enabled) _discord.Set("Dans le launcher", "Prépare sa partie"); else _discord.Clear();
             if (_settings.CurseForgeApiKey != CfKeyBox.Text.Trim())

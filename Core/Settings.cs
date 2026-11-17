@@ -40,6 +40,7 @@ namespace ForpakLauncher.Core
         public bool PerformanceMode { get; set; } = true; // pack FPS (Sodium, Lithium...)
         public bool AnimatedBackground { get; set; } = true;
         public bool DiscordStatus { get; set; } = true;
+        public bool LauncherBoost { get; set; } = true;   // optimisations sans mod (Java, priorité, GPU)
         public string BgWeather { get; set; } = "snow";   // snow / rain / none
         public string CurseForgeApiKey { get; set; } = "";
         public List<ModpackInstance> Modpacks { get; set; } = new();

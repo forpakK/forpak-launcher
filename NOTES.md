@@ -1,1 +1,1 @@
-Petit « made by forpak » ajouté dans le launcher et sur l’écran titre en jeu.
+Nouveau : Boost Velox (activé par défaut, dans Paramètres). Plus de FPS et un jeu plus stable sans ajouter de mod : Java optimisé, priorité haute, carte graphique la plus puissante, pas de ralentissement Windows en arrière-plan.

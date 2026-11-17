@@ -338,7 +338,7 @@ namespace ForpakLauncher.Core
                 jvm.Add("${classpath}");
             }
 
-            var args = new List<string>
+            var args = s.LauncherBoost ? Boost.JvmArgs(s.RamMb) : new List<string>
             {
                 $"-Xmx{s.RamMb}M",
                 $"-Xms{Math.Min(1024, s.RamMb)}M",
@@ -347,6 +347,7 @@ namespace ForpakLauncher.Core
                 "-XX:G1NewSizePercent=20",
                 "-XX:MaxGCPauseMillis=50"
             };
+            if (s.LauncherBoost) Boost.PreferHighPerformanceGpu(javaPath);
             if (!string.IsNullOrWhiteSpace(s.ExtraJvmArgs))
                 args.AddRange(s.ExtraJvmArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries));
             args.AddRange(jvm.Select(a => Fill(a, vars)));
@@ -374,6 +375,7 @@ namespace ForpakLauncher.Core
             p.OutputDataReceived += (_, e) => { if (e.Data != null) Log.Write("[jeu] " + e.Data); };
             p.ErrorDataReceived += (_, e) => { if (e.Data != null) Log.Write("[jeu] " + e.Data); };
             p.Start();
+            if (s.LauncherBoost) Boost.ApplyToProcess(p);
             p.BeginOutputReadLine();
             p.BeginErrorReadLine();
             return p;
