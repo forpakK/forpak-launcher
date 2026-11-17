@@ -10,145 +10,171 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
-/** Liste des modules façon Lunar : clic gauche = activer, clic droit = options. */
+/**
+ * Menu des modules façon Lunar, épuré et adapté à toutes les tailles d'interface.
+ * Catégories à gauche, cartes avec interrupteur à droite.
+ * Clic sur la carte = activer · engrenage (ou clic droit) = réglages.
+ */
 public class ModulesScreen extends Screen {
 
-    private record Module(String name, String desc, BooleanSupplier get, Consumer<Boolean> set,
-                          java.util.function.Function<Screen, Screen> settings) { }
+    private record Module(String name, String desc, int category, BooleanSupplier get, Consumer<Boolean> set,
+                          Function<Screen, Screen> settings) { }
 
-    // Catégories (onglets)
-    private static final String[] TABS = {"HUD", "PvP", "Visuel", "Tout"};
-    private static int tab = 0;
-    private final java.util.Map<Module, Integer> cats = new java.util.HashMap<>();
-    private int scroll = 0;
+    private static final String[] CATS = {"HUD", "PvP", "Visuel", "Tout"};
+    private static int cat = 0;      // gardé entre deux ouvertures
+    private int page = 0;
 
     private final Screen parent;
     private final List<Module> modules = new ArrayList<>();
     private final Clicks clicks = new Clicks();
-    private int panelX, panelY, panelW, panelH;
 
-    private static final int COLS = 4, CARD_W = 104, CARD_H = 42, GAP = 6;
+    private static final int CARD_W = 100, CARD_H = 44, GAP = 5, SIDE_W = 84;
 
     public ModulesScreen(Screen parent) {
         super(Text.literal("Modules"));
         this.parent = parent;
         Config c = ForpakClient.CONFIG;
         for (HudElement e : Hud.ELEMENTS)
-            modules.add(new Module(e.name, "HUD · clic droit", e::isEnabled, e::setEnabled,
-                    parentScreen -> new ModuleSettingsScreen(parentScreen, e)));
-        modules.add(new Module("Viseur perso", "Clic droit : réglages", () -> c.crosshair, v -> { c.crosshair = v; c.save(); },
-                CrosshairScreen::new));
-        modules.add(new Module("Cape Velox", "Visible par Velox", () -> c.cape, v -> { c.cape = v; c.save(); }, null));
-        modules.add(new Module("Freelook", "Maintenir Alt gauche", () -> c.freelook, v -> { c.freelook = v; c.save(); }, null));
-        modules.add(new Module("Météo perso", "Clic droit : choisir", () -> c.weatherMode != 0, v -> {
+            modules.add(new Module(e.name, "Élément du HUD", 0, e::isEnabled, e::setEnabled,
+                    p -> new ModuleSettingsScreen(p, e)));
+
+        modules.add(new Module("Crystal Optimizer", "Crystal PvP", 1, () -> c.crystalOptimizer, v -> { c.crystalOptimizer = v; c.save(); }, null));
+        modules.add(new Module("Anchor Optimizer", "Anchor PvP", 1, () -> c.anchorOptimizer, v -> { c.anchorOptimizer = v; c.save(); }, null));
+        modules.add(new Module("ToggleSprint", "Touche G", 1, () -> c.toggleSprintModule, v -> { c.toggleSprintModule = v; c.save(); }, null));
+        modules.add(new Module("ToggleSneak", "Touche V", 1, () -> c.toggleSneakModule, v -> { c.toggleSneakModule = v; c.save(); }, null));
+        modules.add(new Module("Zoom", "Maintenir C", 1, () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));
+        modules.add(new Module("Freelook", "Maintenir Alt", 1, () -> c.freelook, v -> { c.freelook = v; c.save(); }, null));
+
+        modules.add(new Module("Viseur perso", "Forme et couleur", 2, () -> c.crosshair, v -> { c.crosshair = v; c.save(); }, CrosshairScreen::new));
+        modules.add(new Module("Hit color", "Couleur des coups", 2, () -> c.hitColorEnabled, v -> { c.hitColorEnabled = v; c.save(); }, HitColorScreen::new));
+        modules.add(new Module("Météo perso", "Clair, pluie, neige", 2, () -> c.weatherMode != 0, v -> {
             if (v) c.weatherMode = c.lastWeatherMode == 0 ? 1 : c.lastWeatherMode;
             else { if (c.weatherMode != 0) c.lastWeatherMode = c.weatherMode; c.weatherMode = 0; }
             c.save();
         }, WeatherScreen::new));
-        modules.add(new Module("Sans particules", "Plus de FPS", () -> c.noParticles, v -> { c.noParticles = v; c.save(); }, null));
-        modules.add(new Module("Hit color", "Clic droit : couleur", () -> c.hitColorEnabled,
-                v -> { c.hitColorEnabled = v; c.save(); }, HitColorScreen::new));
-        modules.add(new Module("Crystal Optimizer", "Crystal PvP", () -> c.crystalOptimizer, v -> { c.crystalOptimizer = v; c.save(); }, null));
-        modules.add(new Module("Anchor Optimizer", "Anchor PvP", () -> c.anchorOptimizer, v -> { c.anchorOptimizer = v; c.save(); }, null));
-        modules.add(new Module("Zoom", "Touche C", () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));
-        modules.add(new Module("ToggleSprint", "Touche G", () -> c.toggleSprintModule, v -> { c.toggleSprintModule = v; c.save(); }, null));
-        modules.add(new Module("ToggleSneak", "Touche V", () -> c.toggleSneakModule, v -> { c.toggleSneakModule = v; c.save(); }, null));
-        modules.add(new Module("Menu Velox", "Écran titre perso", () -> c.customMenu, v -> { c.customMenu = v; c.save(); }, null));
+        modules.add(new Module("Sans particules", "Plus de FPS", 2, () -> c.noParticles, v -> { c.noParticles = v; c.save(); }, null));
+        modules.add(new Module("Cape Velox", "Ta cape", 2, () -> c.cape, v -> { c.cape = v; c.save(); }, null));
+        modules.add(new Module("Menu Velox", "Écran titre perso", 2, () -> c.customMenu, v -> { c.customMenu = v; c.save(); }, null));
     }
 
     private List<Module> shown() {
-        if (cats.isEmpty())
-            for (Module m : modules) {
-                String n = m.name();
-                int c = m.desc().startsWith("HUD") ? 0
-                        : (n.contains("Optimizer") || n.startsWith("Toggle") || n.equals("Zoom") || n.equals("Freelook")) ? 1 : 2;
-                cats.put(m, c);
-            }
-        if (tab == 3) return modules;
+        if (cat == 3) return modules;
         List<Module> out = new ArrayList<>();
-        for (Module m : modules) if (cats.get(m) == tab) out.add(m);
+        for (Module m : modules) if (m.category() == cat) out.add(m);
         return out;
-    }
-
-    @Override
-    protected void init() {
-        int rows = Math.min(5, (modules.size() + COLS - 1) / COLS);
-        panelW = COLS * CARD_W + (COLS - 1) * GAP + 24;
-        panelH = 34 + 24 + rows * (CARD_H + GAP) + 34;
-        panelX = (width - panelW) / 2;
-        panelY = Math.max(4, (height - panelH) / 2);
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         if (client == null) return;
-        ctx.fill(0, 0, width, height, 0x90000000);
         clicks.poll(client);
-        Ui.rect(ctx, panelX, panelY, panelW, panelH, Ui.BG_SOLID);
-        Ui.outline(ctx, panelX, panelY, panelW, panelH, 0xFF2A6B5E);
+        ctx.fill(0, 0, width, height, 0xA0050810);
 
-        ctx.drawTextWithShadow(textRenderer, "VELOX", panelX + 12, panelY + 12, Ui.WHITE);
-        ctx.drawTextWithShadow(textRenderer, ".", panelX + 12 + textRenderer.getWidth("VELOX"), panelY + 12, Ui.ACCENT);
-        ctx.drawTextWithShadow(textRenderer, " MODULES", panelX + 12 + textRenderer.getWidth("VELOX."), panelY + 12, Ui.GREY);
-        String hint = "Gauche : activer · Droit : options";
-        ctx.drawTextWithShadow(textRenderer, hint, panelX + panelW - 12 - textRenderer.getWidth(hint), panelY + 12, Ui.GREY);
+        // ---- Panneau : s'adapte à l'écran (même en taille d'interface 5)
+        int pw = Math.max(200, Math.min(width - 12, SIDE_W + 20 + 4 * CARD_W + 3 * GAP));
+        int ph = Math.max(150, Math.min(height - 12, 290));
+        int px = (width - pw) / 2, py = (height - ph) / 2;
+        Ui.rect(ctx, px, py, pw, ph, 0xF20A0F1C);
+        Ui.outline(ctx, px, py, pw, ph, 0xFF1F2A3D);
 
-        // Onglets
-        int tx = panelX + 12;
-        for (int t = 0; t < TABS.length; t++) {
-            int tw = textRenderer.getWidth(TABS[t]) + 18;
-            boolean on = tab == t, hov = Ui.inside(mouseX, mouseY, tx, panelY + 28, tw, 18);
-            Ui.rect(ctx, tx, panelY + 28, tw, 18, on ? 0xFF14A880 : hov ? Ui.CARD_HOVER : Ui.CARD);
-            ctx.drawTextWithShadow(textRenderer, TABS[t], tx + 9, panelY + 33, Ui.WHITE);
-            if (hov && clicks.left) { tab = t; scroll = 0; }
-            tx += tw + 4;
+        // ---- Colonne de gauche : logo + catégories
+        ctx.fill(px + 1, py + 1, px + SIDE_W, py + ph - 1, 0xFF0D1526);
+        ctx.fill(px + SIDE_W, py + 1, px + SIDE_W + 1, py + ph - 1, 0xFF1F2A3D);
+        ctx.drawTextWithShadow(textRenderer, "VELOX", px + 10, py + 10, Ui.WHITE);
+        ctx.drawTextWithShadow(textRenderer, ".", px + 10 + textRenderer.getWidth("VELOX"), py + 10, Ui.ACCENT);
+        ctx.drawTextWithShadow(textRenderer, "Modules", px + 10, py + 21, 0xFF7F8AA0);
+
+        int cy = py + 38;
+        for (int i = 0; i < CATS.length; i++) {
+            int bx = px + 5, bw = SIDE_W - 10;
+            boolean on = cat == i, hov = Ui.inside(mouseX, mouseY, bx, cy, bw, 18);
+            if (on) Ui.rect(ctx, bx, cy, bw, 18, 0xFF163D33);
+            else if (hov) Ui.rect(ctx, bx, cy, bw, 18, 0xFF141C30);
+            if (on) ctx.fill(bx, cy + 4, bx + 2, cy + 14, Ui.ACCENT);
+            ctx.drawTextWithShadow(textRenderer, CATS[i], bx + 9, cy + 5, on ? Ui.WHITE : Ui.GREY);
+            if (hov && clicks.left) { cat = i; page = 0; }
+            cy += 21;
         }
+
+        int by = py + ph - 24;
+        if (Ui.button(ctx, textRenderer, "Retour", px + 5, by, SIDE_W - 10, 18, mouseX, mouseY, clicks.left, false)) { close(); return; }
+        if (by - 22 > cy && Ui.button(ctx, textRenderer, "HUD", px + 5, by - 22, SIDE_W - 10, 18, mouseX, mouseY, clicks.left, true)) {
+            client.setScreen(new HudEditorScreen(this));
+            return;
+        }
+
+        // ---- Zone des cartes (colonnes et lignes calculées selon la place)
+        int ax = px + SIDE_W + 10, ay = py + 10;
+        int aw = px + pw - 10 - ax, ah = py + ph - 30 - ay;
+        int cols = Math.max(1, (aw + GAP) / (CARD_W + GAP));
+        int rows = Math.max(1, (ah + GAP) / (CARD_H + GAP));
+        int perPage = cols * rows;
 
         List<Module> list = shown();
-        int visibleRows = (panelH - 34 - 24 - 34 + GAP) / (CARD_H + GAP);
-        int totalRows = (list.size() + COLS - 1) / COLS;
-        int maxScroll = Math.max(0, totalRows - visibleRows);
-        scroll = Math.max(0, Math.min(scroll, maxScroll));
-        if (maxScroll > 0) {
-            String pg = "▲ ▼  " + (scroll + 1) + "/" + (maxScroll + 1);
-            int px2 = panelX + panelW - 12 - textRenderer.getWidth(pg);
-            ctx.drawTextWithShadow(textRenderer, pg, px2, panelY + 33, Ui.GREY);
-            if (clicks.left && Ui.inside(mouseX, mouseY, px2, panelY + 28, 12, 18)) scroll--;
-            if (clicks.left && Ui.inside(mouseX, mouseY, px2 + 14, panelY + 28, 12, 18)) scroll++;
+        int pages = Math.max(1, (list.size() + perPage - 1) / perPage);
+        page = Math.max(0, Math.min(page, pages - 1));
+
+        int cardW = Math.max(40, (aw - (cols - 1) * GAP) / cols);
+        int start = page * perPage;
+        int end = Math.min(list.size(), start + perPage);
+        for (int i = start; i < end; i++) {
+            int idx = i - start;
+            int x = ax + (idx % cols) * (cardW + GAP);
+            int y = ay + (idx / cols) * (CARD_H + GAP);
+            if (drawCard(ctx, list.get(i), x, y, cardW, mouseX, mouseY)) return; // un écran de réglages s'est ouvert
         }
 
-        int startX = panelX + 12, startY = panelY + 30 + 24;
-        for (int i = scroll * COLS; i < list.size() && i < (scroll + visibleRows) * COLS; i++) {
-            Module m = list.get(i);
-            int idx = i - scroll * COLS;
-            int x = startX + (idx % COLS) * (CARD_W + GAP);
-            int y = startY + (idx / COLS) * (CARD_H + GAP);
-            boolean hover = Ui.inside(mouseX, mouseY, x, y, CARD_W, CARD_H);
-            boolean on = m.get().getAsBoolean();
-            if (hover && clicks.left) { m.set().accept(!on); on = !on; }
-            if (hover && clicks.right && m.settings() != null) {
-                client.setScreen(m.settings().apply(this));
-                return;
-            }
-
-            Ui.rect(ctx, x, y, CARD_W, CARD_H, hover ? Ui.CARD_HOVER : Ui.CARD);
-            if (hover) Ui.outline(ctx, x, y, CARD_W, CARD_H, 0x803EE6A8);
-            ctx.drawTextWithShadow(textRenderer, m.name(), x + 6, y + 6, Ui.WHITE);
-            ctx.drawTextWithShadow(textRenderer, m.desc(), x + 6, y + 17, Ui.GREY);
-
-            int pw = CARD_W - 12;
-            Ui.rect(ctx, x + 6, y + CARD_H - 13, pw, 9, on ? 0xFF163D2A : 0xFF4A2228);
-            String s = on ? "ACTIVÉ" : "DÉSACTIVÉ";
-            ctx.drawTextWithShadow(textRenderer, s, x + 6 + (pw - textRenderer.getWidth(s)) / 2, y + CARD_H - 12,
-                    on ? Ui.GREEN : Ui.RED);
+        // ---- Pages (seulement s'il y en a plusieurs)
+        if (pages > 1) {
+            int fy = py + ph - 22;
+            String txt = (page + 1) + " / " + pages;
+            int tw = textRenderer.getWidth(txt);
+            int mid = ax + aw / 2;
+            ctx.drawTextWithShadow(textRenderer, txt, mid - tw / 2, fy + 4, Ui.GREY);
+            boolean prev = page > 0 && Ui.button(ctx, textRenderer, "<", mid - tw / 2 - 22, fy, 16, 16, mouseX, mouseY, clicks.left, false);
+            boolean next = page < pages - 1 && Ui.button(ctx, textRenderer, ">", mid + tw / 2 + 6, fy, 16, 16, mouseX, mouseY, clicks.left, false);
+            if (prev) page--;
+            if (next) page++;
+            page = Math.max(0, Math.min(page, pages - 1));
         }
+    }
 
-        int by = panelY + panelH - 26;
-        if (Ui.button(ctx, textRenderer, "Modifier le HUD", panelX + 12, by, 120, 20, mouseX, mouseY, clicks.left, false))
-            client.setScreen(new HudEditorScreen(this));
-        if (Ui.button(ctx, textRenderer, "Retour", panelX + panelW - 12 - 80, by, 80, 20, mouseX, mouseY, clicks.left, true))
-            close();
+    /** Dessine une carte. Renvoie true si un écran de réglages a été ouvert. */
+    private boolean drawCard(DrawContext ctx, Module m, int x, int y, int w, int mouseX, int mouseY) {
+        boolean on = m.get().getAsBoolean();
+        boolean hover = Ui.inside(mouseX, mouseY, x, y, w, CARD_H);
+        boolean hasGear = m.settings() != null;
+        int gx = x + w - 13, gy = y + 5;
+        boolean gearHover = hasGear && Ui.inside(mouseX, mouseY, gx - 3, gy - 3, 14, 14);
+
+        if (hasGear && ((gearHover && clicks.left) || (hover && clicks.right))) {
+            client.setScreen(m.settings().apply(this));
+            return true;
+        }
+        if (hover && clicks.left && !gearHover) { m.set().accept(!on); on = !on; }
+
+        Ui.rect(ctx, x, y, w, CARD_H, hover ? 0xFF17213A : 0xFF111A2E);
+        if (on) ctx.fill(x + 3, y + CARD_H - 1, x + w - 3, y + CARD_H, Ui.ACCENT);
+
+        int maxName = w - (hasGear ? 22 : 12);
+        String name = m.name();
+        if (textRenderer.getWidth(name) > maxName) name = textRenderer.trimToWidth(name, maxName - 6) + "..";
+        ctx.drawTextWithShadow(textRenderer, name, x + 6, y + 6, Ui.WHITE);
+        String desc = m.desc();
+        if (textRenderer.getWidth(desc) > w - 12) desc = textRenderer.trimToWidth(desc, w - 18) + "..";
+        ctx.drawText(textRenderer, desc, x + 6, y + 17, 0xFF7F8AA0, false);
+
+        if (hasGear) ctx.drawTextWithShadow(textRenderer, "⚙", gx, gy, gearHover ? Ui.ACCENT : 0xFF7F8AA0);
+
+        // Interrupteur
+        int sx = x + 6, sy = y + CARD_H - 14, sw = 20, sh = 9;
+        Ui.rect(ctx, sx, sy, sw, sh, on ? 0xFF14A880 : 0xFF2A3348);
+        int kx = on ? sx + sw - 8 : sx + 1;
+        ctx.fill(kx, sy + 1, kx + 7, sy + sh - 1, Ui.WHITE);
+        ctx.drawText(textRenderer, on ? "Activé" : "Désactivé", sx + sw + 5, sy + 1, on ? Ui.ACCENT : 0xFF7F8AA0, false);
+        return false;
     }
 
     @Override

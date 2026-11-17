@@ -1,1 +1,1 @@
-En jeu : météo perso (ciel clair, pluie ou neige partout) et module « Sans particules ». Launcher : choisis le temps du fond (neige, pluie ou rien) dans les paramètres.
+Nouvelle page Logs : crashs et journaux en un clic, bouton Copier et un X pour supprimer. Si le jeu plante, le launcher te propose le rapport. Menu des modules refait (plus propre, plus de crash dans « Tout »).

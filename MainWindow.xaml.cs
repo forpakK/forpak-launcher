@@ -300,7 +300,7 @@ namespace ForpakLauncher
             var pages = new (RadioButton nav, FrameworkElement page)[]
             {
                 (NavHome, HomePage), (NavMods, ModsPage), (NavPacks, PacksPage),
-                (NavServers, ServersPage), (NavShots, ShotsPage), (NavSettings, SettingsPage)
+                (NavServers, ServersPage), (NavShots, ShotsPage), (NavLogs, LogsPage), (NavSettings, SettingsPage)
             };
             FrameworkElement shown = HomePage;
             foreach (var (nav, page) in pages)
@@ -315,6 +315,7 @@ namespace ForpakLauncher
             if (NavPacks.IsChecked == true) _ = OpenPacksPageAsync();
             if (NavServers.IsChecked == true) _ = RefreshServersAsync();
             if (NavShots.IsChecked == true) LoadShots();
+            if (NavLogs.IsChecked == true) LoadLogs();
             if (NavSettings.IsChecked == true) LoadSettingsPage();
         }
 
@@ -564,6 +565,7 @@ namespace ForpakLauncher
                 StatusText.Text = "Lancement de Minecraft " + launchId + "...";
                 SetProgress(-1);
                 var gameDir = pack != null ? pack.Dir : ModManager.GameDir(version.Id, fabric);
+                var launchStart = DateTime.Now;
                 var proc = _game.Launch(launchId, _account, _settings, java, gameDir, joinServer);
                 _gameRunning = true;
                 _discord.Set("Joue à Minecraft " + version.Id,
@@ -580,6 +582,7 @@ namespace ForpakLauncher
                     StatusText.Text = proc.ExitCode == 0 ? "Partie terminée." :
                         $"Le jeu s'est arrêté (code {proc.ExitCode}). Détails : {Paths.LogFile}";
                     if (!IsVisible) { Show(); Activate(); }
+                    if (proc.ExitCode != 0) OfferCrashReport(gameDir, launchStart);
                 });
 
                 await Task.Delay(2500);
@@ -1446,6 +1449,218 @@ namespace ForpakLauncher
             catch { }
         }
 
+        // ------------------------------------------------------------- logs
+
+        private LogView _currentLog;
+        private string _pendingLog;
+        private static readonly Brush LogRed = new SolidColorBrush(Color.FromRgb(0xFF, 0x5C, 0x5C));
+        private static readonly Brush LogGreen = new SolidColorBrush(Color.FromRgb(0x3E, 0xE6, 0xA8));
+        private static readonly Brush LogBlue = new SolidColorBrush(Color.FromRgb(0x5C, 0x9D, 0xFF));
+
+        private string InstanceLabel(string dir)
+        {
+            if (string.Equals(Path.GetFullPath(dir).TrimEnd('\\', '/'), Path.GetFullPath(Paths.Root).TrimEnd('\\', '/'),
+                    StringComparison.OrdinalIgnoreCase)) return "Vanilla";
+            var pack = _settings.Modpacks?.FirstOrDefault(p =>
+                string.Equals(Path.GetFullPath(p.Dir), Path.GetFullPath(dir), StringComparison.OrdinalIgnoreCase));
+            if (pack != null) return "Modpack " + pack.Name;
+            var n = Path.GetFileName(dir);
+            return n.EndsWith("-fabric") ? "Fabric " + n[..^7] : n;
+        }
+
+        private List<string> GameDirs()
+        {
+            var dirs = new List<string> { Paths.Root };
+            var inst = Path.Combine(Paths.Root, "instances");
+            if (Directory.Exists(inst)) dirs.AddRange(Directory.GetDirectories(inst));
+            return dirs;
+        }
+
+        /// <summary>Lit un fichier même s'il est ouvert par le jeu (garde la fin si énorme).</summary>
+        private static string ReadShared(string path, int maxBytes = 600_000)
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            bool cut = fs.Length > maxBytes;
+            if (cut) fs.Seek(-maxBytes, SeekOrigin.End);
+            using var sr = new StreamReader(fs);
+            var text = sr.ReadToEnd();
+            return cut ? "... (début du fichier coupé, il est très long)\n" + text : text;
+        }
+
+        /// <summary>Trouve la cause d'un crash : l'erreur Java après « Description: ».</summary>
+        private static string CrashReason(string path)
+        {
+            try
+            {
+                var lines = ReadShared(path, 40_000).Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+                if (Path.GetFileName(path).StartsWith("hs_err"))
+                    return "Crash de Java (" + (lines.FirstOrDefault(l => l.Contains("EXCEPTION_"))?.Trim('#', ' ') ?? "JVM") + ")";
+                int d = lines.FindIndex(l => l.StartsWith("Description:"));
+                if (d < 0) return "";
+                var err = lines.Skip(d + 1).FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? "";
+                int colon = err.IndexOf(':');
+                var cls = colon > 0 ? err[..colon] : err;
+                var msg = colon > 0 ? err[(colon + 1)..].Trim() : "";
+                cls = cls.Contains('.') ? cls[(cls.LastIndexOf('.') + 1)..] : cls;
+                return msg.Length > 0 ? cls + " : " + msg : cls;
+            }
+            catch { return ""; }
+        }
+
+        private void LoadLogs()
+        {
+            var items = new List<LogView>();
+            foreach (var dir in GameDirs())
+            {
+                var label = InstanceLabel(dir);
+                try
+                {
+                    var crashDir = Path.Combine(dir, "crash-reports");
+                    if (Directory.Exists(crashDir))
+                        foreach (var f in Directory.GetFiles(crashDir, "*.txt"))
+                            items.Add(new LogView { Path = f, Kind = "crash", Instance = label, Date = File.GetLastWriteTime(f) });
+                    foreach (var f in Directory.GetFiles(dir, "hs_err_pid*.log"))
+                        items.Add(new LogView { Path = f, Kind = "crash", Instance = label, Date = File.GetLastWriteTime(f) });
+                    var latest = Path.Combine(dir, "logs", "latest.log");
+                    if (File.Exists(latest))
+                        items.Add(new LogView { Path = latest, Kind = "game", Instance = label, Date = File.GetLastWriteTime(latest) });
+                }
+                catch { }
+            }
+            if (File.Exists(Paths.LogFile))
+                items.Add(new LogView { Path = Paths.LogFile, Kind = "launcher", Instance = "Velox Client", Date = File.GetLastWriteTime(Paths.LogFile) });
+
+            items = items.OrderByDescending(i => i.Date).Take(150).ToList();
+            foreach (var i in items)
+            {
+                i.Title = i.Kind switch { "crash" => "Crash · " + i.Instance, "game" => "Journal · " + i.Instance, _ => "Journal du launcher" };
+                i.Sub = i.Date.ToString("dd/MM/yyyy HH:mm") + " · " + Path.GetFileName(i.Path);
+                i.Dot = i.Kind switch { "crash" => LogRed, "game" => LogGreen, _ => LogBlue };
+                if (i.Kind == "crash") i.Reason = CrashReason(i.Path);
+            }
+
+            LogsList.ItemsSource = items;
+            int crashes = items.Count(i => i.Kind == "crash");
+            LogsCount.Text = crashes == 0 ? "Aucun crash 👌" : crashes + (crashes > 1 ? " crashs" : " crash");
+            LogsEmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            var want = _pendingLog ?? _currentLog?.Path;
+            _pendingLog = null;
+            var sel = items.FirstOrDefault(i => string.Equals(i.Path, want, StringComparison.OrdinalIgnoreCase))
+                      ?? items.FirstOrDefault(i => i.Kind == "crash") ?? items.FirstOrDefault();
+            ShowLog(sel);
+        }
+
+        private void ShowLog(LogView v)
+        {
+            if (_currentLog != null) _currentLog.Selected = false;
+            _currentLog = v;
+            LogCopyButton.IsEnabled = LogFolderButton.IsEnabled = v != null;
+            if (v == null)
+            {
+                LogViewTitle.Text = "Choisis un log à gauche";
+                LogViewPath.Text = "";
+                LogViewer.Text = "";
+                return;
+            }
+            v.Selected = true;
+            LogViewTitle.Text = v.Title + (string.IsNullOrEmpty(v.Reason) ? "" : "  —  " + v.Reason);
+            LogViewPath.Text = v.Path;
+            try
+            {
+                LogViewer.Text = ReadShared(v.Path);
+                if (v.Kind == "game") { LogViewer.ScrollToEnd(); }   // la fin du journal est la plus utile
+                else LogViewer.ScrollToHome();
+            }
+            catch (Exception ex) { LogViewer.Text = "Impossible de lire ce fichier : " + ex.Message; }
+        }
+
+        private void LogItem_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is DependencyObject d && FindParent<Button>(d) != null) return; // clic sur le X
+            if (sender is FrameworkElement fe && fe.Tag is LogView v) ShowLog(v);
+        }
+
+        private static T FindParent<T>(DependencyObject d) where T : DependencyObject
+        {
+            while (d != null && d is not T) d = d is Visual || d is System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+            return d as T;
+        }
+
+        private void DeleteLog_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not FrameworkElement fe || fe.Tag is not LogView v) return;
+            try
+            {
+                File.Delete(v.Path);
+                if (_currentLog == v) _currentLog = null;
+                LoadLogs();
+            }
+            catch (IOException)
+            {
+                LogsCount.Text = "Ce fichier est utilisé (le jeu est encore ouvert ?)";
+            }
+            catch (Exception ex) { LogsCount.Text = "Suppression impossible : " + ex.Message; }
+        }
+
+        private void ClearCrashes_Click(object sender, RoutedEventArgs e)
+        {
+            if (LogsList.ItemsSource is not IEnumerable<LogView> items) return;
+            var crashes = items.Where(i => i.Kind == "crash").ToList();
+            if (crashes.Count == 0) return;
+            if (MessageBox.Show($"Supprimer les {crashes.Count} rapports de crash ?", "Logs",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            foreach (var c in crashes) { try { File.Delete(c.Path); } catch { } }
+            _currentLog = null;
+            LoadLogs();
+        }
+
+        private void RefreshLogs_Click(object sender, RoutedEventArgs e) => LoadLogs();
+
+        private void CopyLog_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Clipboard.SetText(LogViewer.Text);
+                LogCopyButton.Content = "Copié ✓";
+                _ = Task.Delay(1500).ContinueWith(_ => Dispatcher.Invoke(() => LogCopyButton.Content = "Copier"));
+            }
+            catch { }
+        }
+
+        private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentLog == null) return;
+            try { Process.Start("explorer.exe", $"/select,\"{_currentLog.Path}\""); } catch { }
+        }
+
+        /// <summary>Appelé quand Minecraft se ferme avec une erreur : propose de voir le rapport.</summary>
+        private void OfferCrashReport(string gameDir, DateTime since)
+        {
+            try
+            {
+                var candidates = new List<string>();
+                var crashDir = Path.Combine(gameDir, "crash-reports");
+                if (Directory.Exists(crashDir)) candidates.AddRange(Directory.GetFiles(crashDir, "*.txt"));
+                candidates.AddRange(Directory.GetFiles(gameDir, "hs_err_pid*.log"));
+                var report = candidates.Where(f => File.GetLastWriteTime(f) >= since.AddSeconds(-5))
+                                       .OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
+                var target = report ?? Path.Combine(gameDir, "logs", "latest.log");
+                if (!File.Exists(target)) return;
+
+                var reason = report != null ? CrashReason(report) : "";
+                var msg = report != null
+                    ? "Minecraft a planté." + (reason.Length > 0 ? "\n\nCause : " + reason : "") + "\n\nVoir le rapport de crash ?"
+                    : "Minecraft s'est fermé avec une erreur.\n\nVoir le journal du jeu ?";
+                if (MessageBox.Show(msg, "Velox Client", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+                _pendingLog = target;
+                if (NavLogs.IsChecked == true) LoadLogs(); else NavLogs.IsChecked = true;
+            }
+            catch (Exception ex) { Log.Write("OfferCrashReport : " + ex.Message); }
+        }
+
         // ------------------------------------------------------------- mise à jour du launcher
 
         private async void Update_Click(object sender, RoutedEventArgs e)
@@ -1513,5 +1728,30 @@ namespace ForpakLauncher
         public string Path { get; set; }
         public ImageSource Thumb { get; set; }
         public string Label { get; set; }
+    }
+
+    public class LogView : System.ComponentModel.INotifyPropertyChanged
+    {
+        public string Path { get; set; }
+        public string Kind { get; set; }
+        public string Instance { get; set; }
+        public DateTime Date { get; set; }
+        public string Title { get; set; }
+        public string Sub { get; set; }
+        public string Reason { get; set; }
+        public Visibility ReasonVis => string.IsNullOrEmpty(Reason) ? Visibility.Collapsed : Visibility.Visible;
+        public Brush Dot { get; set; }
+
+        private bool _selected;
+        public bool Selected
+        {
+            get => _selected;
+            set { _selected = value; PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Border))); }
+        }
+        public Brush Border => _selected ? SelBrush : NoBrush;
+        private static readonly Brush SelBrush = new SolidColorBrush(Color.FromRgb(0x3E, 0xE6, 0xA8));
+        private static readonly Brush NoBrush = new SolidColorBrush(Color.FromRgb(0x22, 0x30, 0x4A));
+
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
     }
 }
