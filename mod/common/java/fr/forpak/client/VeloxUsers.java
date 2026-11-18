@@ -99,6 +99,93 @@ public final class VeloxUsers {
     }
 
     private static JsonObject authBody() {
+        JsonObject b = new JsonObject();
+        b.addProperty("id", myId);
+        b.addProperty("token", token);
+        return b;
+    }
+
+    /** Invitations reçues de mes amis. */
+    private static void inbox() throws Exception {
+        var r = post("/inbox", authBody());
+        if (r.statusCode() == 403) { token = null; return; }
+        if (r.statusCode() != 200) return;
+        for (var e : JsonParser.parseString(r.body()).getAsJsonObject().getAsJsonArray("invites")) {
+            JsonObject i = e.getAsJsonObject();
+            long id = i.get("id").getAsLong();
+            synchronized (seenInvites) { if (!seenInvites.add(id)) continue; }
+            inviteFrom = i.get("from").getAsString();
+            inviteServer = i.get("server").getAsString();
+            inviteAt = System.currentTimeMillis();
+            Toasts.show("✉ " + inviteFrom + " t'invite", "sur " + inviteServer + " · appuie sur J", 0xFF5CC8FF, 20_000);
+        }
+    }
+
+    /** Rejoint le serveur de la dernière invitation (touche J, dans les 20 s). */
+    public static void acceptInvite(MinecraftClient mc) {
+        String server = inviteServer;
+        if (server == null || System.currentTimeMillis() - inviteAt > 20_000) return;
+        inviteServer = null;
+        Toasts.show("Connexion...", server, Ui.ACCENT, 3000);
+        HudHook.joinServer(mc, server);
+    }
+
+    /** Notifie quand un ami Velox se connecte (liste venant du launcher). */
+    private static void friends() throws Exception {
+        var list = Shared.friends;
+        if (list.isEmpty()) return;
+        var res = HTTP.send(HttpRequest.newBuilder(URI.create(API + "/friends?names=" + String.join(",", list)))
+                .timeout(Duration.ofSeconds(10)).build(), HttpResponse.BodyHandlers.ofString());
+        if (res.statusCode() != 200) return;
+        for (var e : JsonParser.parseString(res.body()).getAsJsonObject().getAsJsonArray("friends")) {
+            JsonObject f = e.getAsJsonObject();
+            String name = f.get("name").getAsString();
+            boolean on = f.get("online").getAsBoolean();
+            Boolean was = friendOnline.put(name.toLowerCase(), on);
+            if (friendsBaseline && on && (was == null || !was)) {
+                String srv = f.get("server").getAsString();
+                String where = switch (srv) {
+                    case "", "menu", "hidden" -> "vient de lancer Velox";
+                    case "solo" -> "joue en solo";
+                    case "private" -> "est sur un serveur privé";
+                    default -> "est sur " + srv;
+                };
+                Toasts.show("● " + name, where, Ui.ACCENT, 6000);
+            }
+        }
+        friendsBaseline = true;
+    }
+
+    private static void sendStats() throws Exception {
+        int k = pendingKills.getAndSet(0), p = pendingPops.getAndSet(0), c = pendingCrystals.getAndSet(0);
+        if (k + p + c == 0) return;
+        JsonObject b = authBody();
+        b.addProperty("kills", k);
+        b.addProperty("pops", p);
+        b.addProperty("crystals", c);
+        var r = post("/stats", b);
+        if (r.statusCode() != 200) { pendingKills.addAndGet(k); pendingPops.addAndGet(p); pendingCrystals.addAndGet(c); }
+    }
+
+    /** Où je joue : adresse du serveur, « solo », « menu », « private » ou « hidden ». */
+    private static String currentServer(MinecraftClient mc) {
+        if (mc.world == null) return "menu";
+        if ((ForpakClient.CONFIG != null && !ForpakClient.CONFIG.shareServer) || Shared.streamerOn()) return "hidden";
+        if (mc.isInSingleplayer()) return "solo";
+        var entry = mc.getCurrentServerEntry();
+        if (entry == null || entry.address == null) return "hidden";
+        String a = entry.address.trim().toLowerCase();
+        if (a.startsWith("localhost") || a.startsWith("127.") || a.startsWith("192.168.") || a.startsWith("10.")
+                || a.matches("^172\\.(1[6-9]|2\\d|3[01])\\..*") || a.endsWith(".local")) return "private";
+        return a.replaceAll("[^a-z0-9.\\-:_]", "");
+    }
+
+    /** Envoie mon statut (serveur + cape) : tout de suite si ça change, sinon chaque minute. */
+    private static void status(MinecraftClient mc) throws Exception {
+        String server = currentServer(mc);
+        long now = System.currentTimeMillis();
+        String key = server + "|" + Shared.cape;
+        if (key.equals(lastServer) && now - lastStatus < 60_000) return;
         JsonObject b = authBody();
         b.addProperty("server", server);
         b.addProperty("cape", Shared.cape);
@@ -112,15 +199,15 @@ public final class VeloxUsers {
     private static boolean ping() throws Exception {
         var session = MinecraftClient.getInstance().getSession();
         UUID uuid = session.getUuidOrNull();
-        String token = session.getAccessToken();
-        if (uuid == null || token == null || token.length() < 20) return false;
+        String accessToken = session.getAccessToken();
+        if (uuid == null || accessToken == null || accessToken.length() < 20) return false;
 
         byte[] rnd = new byte[20];
         new SecureRandom().nextBytes(rnd);
         String serverId = HexFormat.of().formatHex(rnd);
 
         JsonObject join = new JsonObject();
-        join.addProperty("accessToken", token);
+        join.addProperty("accessToken", accessToken);
         join.addProperty("selectedProfile", uuid.toString().replace("-", ""));
         join.addProperty("serverId", serverId);
         var r1 = HTTP.send(HttpRequest.newBuilder(URI.create("https://sessionserver.mojang.com/session/minecraft/join"))

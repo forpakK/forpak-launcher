@@ -13,6 +13,7 @@ namespace ForpakLauncher
     public partial class MainWindow : Window
     {
         private readonly HttpClient _http;
+        private VeloxApi _velox;
         private readonly Settings _settings;
         private readonly GameManager _game;
         private readonly ModManager _mods;
@@ -48,6 +49,11 @@ namespace ForpakLauncher
             _updater = new Updater(_http);
             _cf = new CurseForge(_http) { ApiKey = _settings.CurseForgeApiKey };
             _packs = new Modpacks(_http);
+            _velox = new VeloxApi(_http);
+            ApplyTheme(_settings.Theme);
+            BuildThemePanel();
+            BuildCapePanel();
+            VeloxApi.WriteShared(_settings);
             VersionLabel.Text = "v" + Updater.CurrentVersionText;
 
             FabricSwitch.IsChecked = _settings.UseFabric;
@@ -572,7 +578,7 @@ namespace ForpakLauncher
                 var proc = _game.Launch(launchId, _account, _settings, java, gameDir, joinServer);
                 _gameRunning = true;
                 _discord.Set("Joue à Minecraft " + version.Id,
-                    joinServer != null ? "Sur " + joinServer
+                    joinServer != null ? (_settings.StreamerMode ? "Sur un serveur" : "Sur " + joinServer)
                     : pack != null ? "Modpack " + pack.Name
                     : fabric && _settings.ForpakClient ? "Avec les modules PvP Velox" : "Minecraft Java",
                     resetTimer: true);
@@ -646,6 +652,7 @@ namespace ForpakLauncher
             WeatherNone.IsChecked = _settings.BgWeather == "none";
             DiscordSwitch.IsChecked = _settings.DiscordStatus;
             BoostSwitch.IsChecked = _settings.LauncherBoost;
+            StreamerSwitch.IsChecked = _settings.StreamerMode;
             CfKeyBox.Text = _settings.CurseForgeApiKey;
             CfKeyHint.Text = CurseForge.BuiltInKey != null
                 ? "Une clé est déjà intégrée au launcher : laisse vide, ou mets la tienne pour la remplacer."
@@ -685,6 +692,8 @@ namespace ForpakLauncher
             _settings.AnimatedBackground = AnimSwitch.IsChecked == true;
             _settings.DiscordStatus = DiscordSwitch.IsChecked == true;
             _settings.LauncherBoost = BoostSwitch.IsChecked == true;
+            _settings.StreamerMode = StreamerSwitch.IsChecked == true;
+            VeloxApi.WriteShared(_settings);
             _discord.Enabled = _settings.DiscordStatus;
             if (_discord.Enabled) _discord.Set("Dans le launcher", "Prépare sa partie"); else _discord.Clear();
             if (_settings.CurseForgeApiKey != CfKeyBox.Text.Trim())
@@ -1467,7 +1476,11 @@ namespace ForpakLauncher
             _ = RefreshOnlineAsync();
             _ = RefreshFriendsAsync();
             var fast = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
-            fast.Tick += async (_, _) => { if (NavFriends.IsChecked == true && IsVisible) await RefreshFriendsAsync(); };
+            fast.Tick += async (_, _) =>
+            {
+                if (NavFriends.IsChecked == true && IsVisible) await RefreshFriendsAsync();
+                await CheckInboxAsync();
+            };
             fast.Start();
         }
 
@@ -1486,9 +1499,103 @@ namespace ForpakLauncher
             catch { OnlinePill.Visibility = Visibility.Collapsed; }
         }
 
+        // ------------------------------------------------------------- thèmes et capes
+
+        private static readonly (string id, string name, string accent, string dark, string g1, string g2)[] Themes =
+        {
+            ("aurore", "Aurore", "#3EE6A8", "#2BC48D", "#14A880", "#0C86AE"),
+            ("violet", "Violet", "#B58CFF", "#9466F0", "#8B4FE0", "#5B3FD6"),
+            ("rouge",  "Rouge",  "#FF6B7A", "#E5485A", "#E0404F", "#A8306A"),
+            ("bleu",   "Bleu",   "#62BDFF", "#3F95E0", "#2F86E0", "#3550D0"),
+            ("or",     "Or",     "#FFCB52", "#E6A92E", "#E0A12A", "#C9661C")
+        };
+
+        private static Color Hex(string h) => (Color)ColorConverter.ConvertFromString(h);
+
+        private static Color Lighter(Color c) =>
+            Color.FromRgb((byte)Math.Min(255, c.R + 20), (byte)Math.Min(255, c.G + 20), (byte)Math.Min(255, c.B + 20));
+
+        private void ApplyTheme(string id)
+        {
+            var t = Themes.FirstOrDefault(x => x.id == id);
+            if (t.id == null) t = Themes[0];
+            var res = Application.Current.Resources;
+            void SetBrush(string key, Color c)
+            {
+                if (res[key] is SolidColorBrush b && !b.IsFrozen) b.Color = c;
+                else res[key] = new SolidColorBrush(c);
+            }
+            void SetGradient(string key, Color a, Color b)
+            {
+                if (res[key] is LinearGradientBrush g && !g.IsFrozen && g.GradientStops.Count >= 2)
+                { g.GradientStops[0].Color = a; g.GradientStops[1].Color = b; }
+                else res[key] = new LinearGradientBrush(a, b, new Point(0, 0), new Point(1, 1));
+            }
+            try
+            {
+                SetBrush("Accent", Hex(t.accent));
+                SetBrush("AccentDark", Hex(t.dark));
+                SetGradient("ButtonFill", Hex(t.g1), Hex(t.g2));
+                SetGradient("ButtonFillHover", Lighter(Hex(t.g1)), Lighter(Hex(t.g2)));
+                res["AccentColor"] = Hex(t.accent);
+            }
+            catch (Exception ex) { Log.Write("Thème : " + ex.Message); }
+        }
+
+        private void BuildThemePanel()
+        {
+            ThemePanel.Children.Clear();
+            foreach (var t in Themes)
+            {
+                var dot = new Border { Width = 12, Height = 12, CornerRadius = new CornerRadius(6), Background = new SolidColorBrush(Hex(t.accent)), Margin = new Thickness(0, 0, 7, 0) };
+                var content = new StackPanel { Orientation = Orientation.Horizontal, Children = { dot, new TextBlock { Text = t.name } } };
+                var rb = new RadioButton { Style = (Style)FindResource("Pill"), GroupName = "theme", Content = content, Margin = new Thickness(0, 0, 8, 8), IsChecked = _settings.Theme == t.id, Tag = t.id };
+                rb.Checked += (s, _) =>
+                {
+                    _settings.Theme = (string)((RadioButton)s).Tag;
+                    ApplyTheme(_settings.Theme);
+                    _settings.Save();
+                };
+                ThemePanel.Children.Add(rb);
+            }
+        }
+
+        private static readonly (string id, string name)[] CapeList =
+            { ("velox", "Velox"), ("aurora", "Aurore"), ("neige", "Neige"), ("flamme", "Flamme"), ("nuit", "Nuit") };
+
+        private void BuildCapePanel()
+        {
+            CapePanel.Children.Clear();
+            foreach (var c in CapeList)
+            {
+                Image img = new Image { Width = 30, Height = 48, Margin = new Thickness(0, 0, 0, 4) };
+                RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
+                try
+                {
+                    var src = new BitmapImage(new Uri($"pack://application:,,,/Assets/capes/{c.id}.png"));
+                    img.Source = new CroppedBitmap(src, new Int32Rect(1, 1, 10, 16));   // dos de la cape
+                }
+                catch { }
+                var content = new StackPanel { Children = { img, new TextBlock { Text = c.name, HorizontalAlignment = HorizontalAlignment.Center, FontSize = 11 } } };
+                var rb = new RadioButton { Style = (Style)FindResource("Pill"), GroupName = "cape", Content = content, Margin = new Thickness(0, 0, 8, 8), IsChecked = (_settings.Cape ?? "velox") == c.id, Tag = c.id };
+                rb.Checked += (s, _) =>
+                {
+                    _settings.Cape = (string)((RadioButton)s).Tag;
+                    _settings.Save();
+                    VeloxApi.WriteShared(_settings);
+                    if (SkinStatus != null) SkinStatus.Text = "Cape choisie ✓  Elle s'affichera en jeu (et pour tes amis Velox).";
+                };
+                CapePanel.Children.Add(rb);
+            }
+        }
+
         // ------------------------------------------------------------- amis
 
         private bool _friendsLoading;
+        private readonly Dictionary<string, bool> _friendOnline = new();
+        private bool _friendsBaseline;
+        private readonly HashSet<long> _seenInvites = new();
+        private DateTime _lastTokenTry = DateTime.MinValue;
 
         private static string Ago(long ms)
         {
@@ -1544,6 +1651,7 @@ namespace ForpakLauncher
                         bool online = f.GetProperty("online").GetBoolean();
                         string server = f.GetProperty("server").GetString() ?? "";
                         long last = f.TryGetProperty("last", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.Number ? l.GetInt64() : 0;
+                        v.Velox = true;
                         if (online)
                         {
                             v.Online = true;
@@ -1567,13 +1675,110 @@ namespace ForpakLauncher
                     }
                     views.Add(v);
                 }
+                // Notification quand un ami se connecte (dans le jeu, c'est le mod qui prévient)
+                foreach (var v in views)
+                {
+                    bool was = _friendOnline.TryGetValue(v.Name.ToLowerInvariant(), out var w) && w;
+                    if (ok && _friendsBaseline && v.Online && !was && !_gameRunning)
+                        VeloxToast.Show("● " + v.Name + " est en jeu", v.Status.Replace("En jeu · ", "").Replace("En jeu sur ", "Sur "),
+                            v.Server != null ? "Rejoindre" : null,
+                            v.Server != null ? () => { _joinServer = v.Server; GoHome(); Play_Click(this, new RoutedEventArgs()); } : null);
+                    if (ok) _friendOnline[v.Name.ToLowerInvariant()] = v.Online;
+                    v.InviteVis = v.Velox && _gameRunning ? Visibility.Visible : Visibility.Collapsed;
+                }
+                if (ok) _friendsBaseline = true;
                 views = views.OrderByDescending(v => v.Online).ThenBy(v => v.Name, StringComparer.OrdinalIgnoreCase).ToList();
                 FriendsList.ItemsSource = views;
                 int on = views.Count(v => v.Online);
                 FriendsCount.Text = $"{on} en jeu sur {views.Count}";
                 NavFriendsSub.Text = on == 0 ? "Tes potes Velox" : on == 1 ? "1 ami en jeu" : $"{on} amis en jeu";
+                await RefreshBoardAsync(names);
             }
             finally { _friendsLoading = false; }
+        }
+
+        private async Task RefreshBoardAsync(List<string> friends)
+        {
+            try
+            {
+                var names = friends.ToList();
+                if (_account != null) names.Add(_account.Name);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                var json = await _http.GetStringAsync(VeloxApi.Base + "/leaderboard?names=" + Uri.EscapeDataString(string.Join(",", names)), cts.Token);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var rows = doc.RootElement.GetProperty("players").EnumerateArray().Select(p => new
+                {
+                    Name = p.GetProperty("name").GetString(),
+                    K = p.GetProperty("kills").GetInt32(),
+                    P = p.GetProperty("pops").GetInt32(),
+                    C = p.GetProperty("crystals").GetInt32()
+                }).OrderByDescending(r => r.K).ThenByDescending(r => r.P).ThenByDescending(r => r.C).Take(5).ToList();
+                if (rows.Count == 0) { BoardCard.Visibility = Visibility.Collapsed; return; }
+                var gold = new SolidColorBrush(Color.FromRgb(0xFF, 0xC9, 0x4D));
+                var silver = new SolidColorBrush(Color.FromRgb(0xC9, 0xD2, 0xE3));
+                var bronze = new SolidColorBrush(Color.FromRgb(0xD9, 0x8C, 0x5F));
+                BoardList.ItemsSource = rows.Select((r, i) => new
+                {
+                    Rank = "#" + (i + 1),
+                    RankBrush = i == 0 ? gold : i == 1 ? silver : i == 2 ? bronze : (Brush)FindResource("Muted"),
+                    r.Name,
+                    Weight = _account != null && r.Name.Equals(_account.Name, StringComparison.OrdinalIgnoreCase) ? FontWeights.Bold : FontWeights.Normal,
+                    Score = $"{r.K} · {r.P} · {r.C}"
+                }).ToList();
+                BoardCard.Visibility = Visibility.Visible;
+            }
+            catch { BoardCard.Visibility = Visibility.Collapsed; }
+        }
+
+        private async Task<bool> VeloxTokenAsync()
+        {
+            if (_velox.HasToken) return true;
+            if (_account == null || DateTime.Now - _lastTokenTry < TimeSpan.FromMinutes(5)) return false;
+            _lastTokenTry = DateTime.Now;
+            if (!await EnsureFreshTokenAsync(required: false)) return false;
+            return await _velox.EnsureTokenAsync(_account);
+        }
+
+        private async void InviteFriend_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not FriendView v) return;
+            _lastTokenTry = DateTime.MinValue;
+            if (!await VeloxTokenAsync()) { FriendsCount.Text = "Connexion au serveur Velox impossible, réessaie."; return; }
+            var res = await _velox.PostAsync("/invite", new System.Text.Json.Nodes.JsonObject { ["to"] = v.Name });
+            if (res is not { } r) { FriendsCount.Text = "Invitation impossible, réessaie."; return; }
+            if (r.GetProperty("ok").GetBoolean())
+                FriendsCount.Text = $"Invitation envoyée à {v.Name} ✓";
+            else
+                FriendsCount.Text = r.TryGetProperty("error", out var err) && err.GetString() == "too_fast"
+                    ? "Attends quelques secondes avant de le réinviter."
+                    : "Rejoins un serveur en jeu pour pouvoir inviter.";
+        }
+
+        /// <summary>Invitations reçues pendant que le jeu est fermé : notification avec « Rejoindre ».</summary>
+        private async Task CheckInboxAsync()
+        {
+            if (_gameRunning || _account == null) return;
+            if (!await VeloxTokenAsync()) return;
+            try
+            {
+                var res = await _velox.PostAsync("/inbox", new System.Text.Json.Nodes.JsonObject());
+                if (res is not { } r) return;
+                foreach (var i in r.GetProperty("invites").EnumerateArray())
+                {
+                    long id = i.GetProperty("id").GetInt64();
+                    if (!_seenInvites.Add(id)) continue;
+                    string from = i.GetProperty("from").GetString(), server = i.GetProperty("server").GetString();
+                    VeloxToast.Show("✉ " + from + " t'invite", "sur " + server, "Rejoindre", () =>
+                    {
+                        if (_gameRunning) return;
+                        _joinServer = server;
+                        GoHome();
+                        StatusText.Text = "Lancement et connexion à " + server + " (invité par " + from + ")...";
+                        Play_Click(this, new RoutedEventArgs());
+                    }, 25);
+                }
+            }
+            catch { }
         }
 
         private async void AddFriend_Click(object sender, RoutedEventArgs e)
@@ -1592,6 +1797,7 @@ namespace ForpakLauncher
             if (_settings.Friends.Count >= 50) { FriendsCount.Text = "50 amis maximum."; return; }
             _settings.Friends.Add(name);
             _settings.Save();
+            VeloxApi.WriteShared(_settings);
             FriendBox.Text = "";
             await RefreshFriendsAsync();
         }
@@ -1606,6 +1812,7 @@ namespace ForpakLauncher
             if (sender is not FrameworkElement fe || fe.Tag is not FriendView v) return;
             _settings.Friends.RemoveAll(f => f.Equals(v.Name, StringComparison.OrdinalIgnoreCase));
             _settings.Save();
+            VeloxApi.WriteShared(_settings);
             await RefreshFriendsAsync();
         }
 
@@ -2055,5 +2262,7 @@ namespace ForpakLauncher
         public Brush StatusBrush { get; set; }
         public ImageSource Avatar { get; set; }
         public Visibility JoinVis { get; set; } = Visibility.Collapsed;
+        public Visibility InviteVis { get; set; } = Visibility.Collapsed;
+        public bool Velox { get; set; }
     }
 }

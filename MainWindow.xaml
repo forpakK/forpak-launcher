@@ -1132,6 +1132,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -1149,7 +1150,34 @@
                         <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="Ajouter un ami" Padding="16,8"
                                 Margin="8,0,0,0" Click="AddFriend_Click"/>
                     </Grid>
-                    <Grid Grid.Row="2" Margin="0,14,0,0">
+                    <!-- Classement de la semaine -->
+                    <Border x:Name="BoardCard" Grid.Row="2" Margin="0,14,0,0" CornerRadius="12" Padding="14,10"
+                            Background="#C00D1526" BorderBrush="{StaticResource Stroke}" BorderThickness="1" Visibility="Collapsed">
+                        <StackPanel>
+                            <Grid>
+                                <TextBlock Text="🏆  Classement de la semaine" FontWeight="SemiBold" FontSize="13"/>
+                                <TextBlock Text="kills · totems · crystals" HorizontalAlignment="Right" FontSize="10.5"
+                                           Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                            </Grid>
+                            <ItemsControl x:Name="BoardList" Margin="0,6,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,3,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="28"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Rank}" FontWeight="Bold" Foreground="{Binding RankBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding Weight}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Score}" Foreground="{StaticResource Muted}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                    <Grid Grid.Row="3" Margin="0,14,0,0">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="FriendsList">
                                 <ItemsControl.ItemTemplate>
@@ -1174,9 +1202,13 @@
                                                     <TextBlock Text="{Binding Status}" FontSize="11.5" Foreground="{Binding StatusBrush}" Margin="0,2,0,0"
                                                                TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
-                                                <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Rejoindre" Padding="14,7"
-                                                        Tag="{Binding}" Click="JoinFriend_Click" Visibility="{Binding JoinVis}"
-                                                        VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Style="{StaticResource GhostButton}" Content="Inviter" Padding="12,7"
+                                                            Tag="{Binding}" Click="InviteFriend_Click" Visibility="{Binding InviteVis}" Margin="10,0,0,0"
+                                                            ToolTip="L'inviter sur le serveur où tu joues"/>
+                                                    <Button Style="{StaticResource PrimaryButton}" Content="Rejoindre" Padding="14,7"
+                                                            Tag="{Binding}" Click="JoinFriend_Click" Visibility="{Binding JoinVis}" Margin="8,0,0,0"/>
+                                                </StackPanel>
                                                 <Button Grid.Column="3" Content="✕" Tag="{Binding}" Click="RemoveFriend_Click" ToolTip="Retirer"
                                                         Width="26" Height="26" Margin="8,0,0,0" VerticalAlignment="Center" Cursor="Hand"
                                                         Foreground="{StaticResource Muted}" FontSize="11">
@@ -1208,6 +1240,7 @@
 
                 <!-- ============ SKIN ============ -->
                 <Grid x:Name="SkinPage" Grid.Row="1" Margin="24,0,24,22" Visibility="Collapsed">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Border Style="{StaticResource Glass}" Background="#F0091222" Padding="28" HorizontalAlignment="Center"
                             VerticalAlignment="Center" Width="720">
                         <Grid>
@@ -1215,7 +1248,7 @@
                                 <ColumnDefinition Width="260"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Border CornerRadius="14" Background="#060A14" Height="330" Margin="0,0,24,0">
+                            <Border CornerRadius="14" Background="#060A14" Height="330" Margin="0,0,24,0" VerticalAlignment="Top">
                                 <Grid>
                                     <Image x:Name="SkinPreview" Stretch="Uniform" Margin="30" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
                                     <TextBlock x:Name="SkinPreviewLabel" Text="Ton skin actuel" FontSize="10.5" Foreground="{StaticResource Muted}"
@@ -1244,9 +1277,13 @@
                                             Click="NameMc_Click"/>
                                 </StackPanel>
                                 <TextBlock x:Name="SkinStatus" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="Cape Velox" FontWeight="SemiBold" Margin="0,22,0,4"/>
+                                <TextBlock Text="Visible en jeu par toi et tous les joueurs Velox." FontSize="11" Foreground="{StaticResource Muted}"/>
+                                <WrapPanel x:Name="CapePanel" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Grid>
                     </Border>
+                    </ScrollViewer>
                 </Grid>
 
                 <!-- ============ LOGS ============ -->
@@ -1427,6 +1464,10 @@
                                     <RadioButton x:Name="WeatherNone" Style="{StaticResource Pill}" GroupName="bgweather"
                                                  Content="Rien" Tag="none" Checked="BgWeather_Checked"/>
                                 </StackPanel>
+                                <TextBlock Text="Couleur du launcher" FontWeight="SemiBold" Margin="0,14,0,6"/>
+                                <WrapPanel x:Name="ThemePanel"/>
+                                <CheckBox x:Name="StreamerSwitch" Style="{StaticResource Switch}"
+                                          Content="Mode streamer (cache pseudo, coords et serveur)" Margin="0,12,0,0"/>
                                 <CheckBox x:Name="DiscordSwitch" Style="{StaticResource Switch}"
                                           Content="Statut Discord (« Joue à Velox Client »)" Margin="0,12,0,0"/>
                                 <CheckBox x:Name="SnapshotSwitch" Style="{StaticResource Switch}" Content="Afficher les snapshots"

@@ -46,6 +46,9 @@ namespace ForpakLauncher.Core
         public List<ModpackInstance> Modpacks { get; set; } = new();
         public List<ServerEntry> Servers { get; set; } = new();
         public List<string> Friends { get; set; } = new();
+        public string Theme { get; set; } = "aurore";
+        public string Cape { get; set; } = "velox";
+        public bool StreamerMode { get; set; } = false;
         public bool CloseOnLaunch { get; set; } = false;
         public string LastVersion { get; set; } = "";
         public string LastPack { get; set; }
