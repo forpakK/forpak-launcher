@@ -11,7 +11,9 @@
     "HitColorMixin",
     "WeatherWorldMixin",
     "WeatherBiomeMixin",
-    "ParticlesMixin"
+    "ParticlesMixin",
+    "NameTagMixin",
+    "TabListMixin"
   ],
   "injectors": {
     "defaultRequire": 0

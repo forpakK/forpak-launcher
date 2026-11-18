@@ -39,6 +39,7 @@ public class ForpakClient implements ClientModInitializer {
             return net.minecraft.util.ActionResult.PASS;
         });
         Capes.loadList();
+        VeloxUsers.start();
         ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
     }
 

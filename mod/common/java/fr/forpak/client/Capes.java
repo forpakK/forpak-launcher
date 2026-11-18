@@ -49,6 +49,8 @@ public final class Capes {
         if (ForpakClient.CONFIG == null || !ForpakClient.CONFIG.cape) return null;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player != null && mc.player.getUuid().equals(uuid)) return VELOX;
-        return FRIENDS.get(uuid.toString().replace("-", "").toLowerCase());
+        Identifier friend = FRIENDS.get(uuid.toString().replace("-", "").toLowerCase());
+        if (friend != null) return friend;
+        return VeloxUsers.isVelox(uuid) ? VELOX : null;   // tous les joueurs Velox ont la cape
     }
 }

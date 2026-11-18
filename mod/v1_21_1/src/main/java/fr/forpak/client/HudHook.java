@@ -28,4 +28,9 @@ public final class HudHook {
     public static void pop(DrawContext ctx) {
         ctx.getMatrices().pop();
     }
+
+    /** UUID d'un joueur de la liste Tab. */
+    public static java.util.UUID profileId(net.minecraft.client.network.PlayerListEntry e) {
+        return e.getProfile().getId();
+    }
 }
