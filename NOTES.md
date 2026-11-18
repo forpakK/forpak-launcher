@@ -1,1 +1,1 @@
-Nouveau : Boost Velox (activé par défaut, dans Paramètres). Plus de FPS et un jeu plus stable sans ajouter de mod : Java optimisé, priorité haute, carte graphique la plus puissante, pas de ralentissement Windows en arrière-plan.
+Nouveau : icône Velox ⚡ à côté du pseudo des joueurs qui utilisent Velox Client (au-dessus de la tête et dans Tab), et ils ont tous la cape Velox. Module « Icône Velox » dans Visuel.

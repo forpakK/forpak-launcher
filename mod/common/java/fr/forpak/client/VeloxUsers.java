@@ -27,7 +27,7 @@ public final class VeloxUsers {
     private VeloxUsers() { }
 
     /** Adresse du serveur Velox (Cloudflare). Vide = fonction désactivée. */
-    public static final String API = "";
+    public static final String API = "https://velox.fforpakk.workers.dev";
 
     /** Caractère de l'icône (dessiné par la police du mod : assets/minecraft/font/default.json). */
     public static final String ICON = "";
