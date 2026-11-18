@@ -76,6 +76,14 @@ public final class Stats {
     public static int sessionDeaths, sessionTotems, sessionCrystals;
     private static boolean wasDead;
 
+    // --- Target HUD : dernier joueur tapé
+    public static int targetId = -1;
+    public static long targetTime;
+
+    // --- Point de mort (dernière mort : position + dimension)
+    public static double[] deathPos;
+    public static String deathDim;
+
     public static String sessionText() {
         long min = sessionStart == 0 ? 0 : (System.currentTimeMillis() - sessionStart) / 60000;
         String time = min >= 60 ? (min / 60) + "h" + String.format("%02d", min % 60) : min + " min";
@@ -90,7 +98,11 @@ public final class Stats {
             sessionDeaths = sessionTotems = sessionCrystals = 0;
         }
         boolean dead = p.isDead();
-        if (dead && !wasDead) sessionDeaths++;
+        if (dead && !wasDead) {
+            sessionDeaths++;
+            deathPos = new double[]{p.getX(), p.getY(), p.getZ()};
+            deathDim = mc.world == null ? "" : mc.world.getRegistryKey().getValue().toString();
+        }
         wasDead = dead;
         if (!Double.isNaN(lastX)) {
             double dx = p.getX() - lastX, dz = p.getZ() - lastZ;
@@ -122,6 +134,7 @@ public final class Stats {
         if (target.getId() == lastTargetId && now - lastHitTime < 2000) combo++;
         else combo = 1;
         lastTargetId = target.getId();
+        if (target instanceof net.minecraft.entity.LivingEntity) { targetId = target.getId(); targetTime = now; }
         lastHitTime = now;
     }
 

@@ -65,6 +65,7 @@ namespace ForpakLauncher
                 LoadLogo(CurseForgeLogo, "www.curseforge.com");
                 CurseForgeLogo.Opacity = 0.45;
                 if (_settings.AnimatedBackground) StartBackground();
+                StartOnlineCounter();
                 await InitAsync();
             };
             // Pas d'animation quand la fenêtre est réduite : on économise le CPU
@@ -300,7 +301,7 @@ namespace ForpakLauncher
             var pages = new (RadioButton nav, FrameworkElement page)[]
             {
                 (NavHome, HomePage), (NavMods, ModsPage), (NavPacks, PacksPage),
-                (NavServers, ServersPage), (NavShots, ShotsPage), (NavLogs, LogsPage), (NavSettings, SettingsPage)
+                (NavServers, ServersPage), (NavShots, ShotsPage), (NavSkin, SkinPage), (NavLogs, LogsPage), (NavSettings, SettingsPage)
             };
             FrameworkElement shown = HomePage;
             foreach (var (nav, page) in pages)
@@ -316,6 +317,7 @@ namespace ForpakLauncher
             if (NavServers.IsChecked == true) _ = RefreshServersAsync();
             if (NavShots.IsChecked == true) LoadShots();
             if (NavLogs.IsChecked == true) LoadLogs();
+            if (NavSkin.IsChecked == true) LoadSkinPage();
             if (NavSettings.IsChecked == true) LoadSettingsPage();
         }
 
@@ -1449,6 +1451,154 @@ namespace ForpakLauncher
                 ShotsCount.Text = "Capture copiée dans le presse-papiers ✓";
             }
             catch { }
+        }
+
+        // ------------------------------------------------------------- joueurs Velox en ligne
+
+        private const string VeloxApi = "https://velox.fforpakk.workers.dev";
+        private System.Windows.Threading.DispatcherTimer _onlineTimer;
+
+        private void StartOnlineCounter()
+        {
+            _onlineTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+            _onlineTimer.Tick += async (_, _) => await RefreshOnlineAsync();
+            _onlineTimer.Start();
+            _ = RefreshOnlineAsync();
+        }
+
+        private async Task RefreshOnlineAsync()
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                var json = await _http.GetStringAsync(VeloxApi + "/online", cts.Token);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                int n = doc.RootElement.GetProperty("users").GetArrayLength();
+                OnlineText.Text = n == 0 ? "Aucun joueur Velox en jeu pour l'instant"
+                                : n == 1 ? "1 joueur Velox en jeu" : $"{n} joueurs Velox en jeu";
+                OnlinePill.Visibility = Visibility.Visible;
+            }
+            catch { OnlinePill.Visibility = Visibility.Collapsed; }
+        }
+
+        // ------------------------------------------------------------- skin
+
+        private string _skinFile;
+
+        private void LoadSkinPage()
+        {
+            if (_skinFile != null) return;   // garde l'aperçu du fichier choisi
+            SkinPreviewLabel.Text = "Ton skin actuel";
+            if (_account == null) { SkinStatus.Text = "Connecte-toi pour changer ton skin."; SkinPreview.Source = null; return; }
+            try
+            {
+                SkinPreview.Source = new BitmapImage(new Uri($"https://mc-heads.net/body/{_account.Uuid}/240?t={DateTime.Now.Ticks}"));
+            }
+            catch { }
+        }
+
+        private void PickSkin_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "Skin Minecraft (*.png)|*.png", Title = "Choisis ton skin" };
+            if (dlg.ShowDialog(this) != true) return;
+            try
+            {
+                SkinPreview.Source = RenderSkinFront(dlg.FileName, SkinSlim.IsChecked == true);
+                _skinFile = dlg.FileName;
+                SkinFileText.Text = Path.GetFileName(dlg.FileName);
+                SkinPreviewLabel.Text = "Aperçu (de face)";
+                ApplySkinButton.IsEnabled = _account != null;
+                SkinStatus.Text = _account == null ? "Connecte-toi pour l'appliquer." : "Clique sur « Appliquer le skin ».";
+            }
+            catch (Exception ex) { SkinStatus.Text = ex.Message; }
+        }
+
+        private void SkinModel_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_skinFile == null || SkinPreview == null) return;
+            try { SkinPreview.Source = RenderSkinFront(_skinFile, SkinSlim.IsChecked == true); } catch { }
+        }
+
+        private void NameMc_Click(object sender, RoutedEventArgs e) => OpenUrl("https://namemc.com/minecraft-skins");
+
+        private async void ApplySkin_Click(object sender, RoutedEventArgs e)
+        {
+            if (_skinFile == null || _account == null) return;
+            ApplySkinButton.IsEnabled = false;
+            SkinStatus.Text = "Envoi du skin à Minecraft...";
+            try
+            {
+                if (!await EnsureFreshTokenAsync(required: true)) { SkinStatus.Text = "Ta session a expiré, reconnecte-toi."; return; }
+                using var form = new MultipartFormDataContent();
+                form.Add(new StringContent(SkinSlim.IsChecked == true ? "slim" : "classic"), "variant");
+                var file = new ByteArrayContent(await File.ReadAllBytesAsync(_skinFile));
+                file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+                form.Add(file, "file", "skin.png");
+                using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.minecraftservices.com/minecraft/profile/skins") { Content = form };
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _account.AccessToken);
+                using var res = await _http.SendAsync(req);
+                if (res.IsSuccessStatusCode)
+                {
+                    SkinStatus.Text = "Skin changé ✓  Il apparaîtra en jeu à ta prochaine connexion.";
+                    try { AvatarImage.Source = new BitmapImage(new Uri($"https://mc-heads.net/avatar/{_account.Uuid}/64?t={DateTime.Now.Ticks}")); } catch { }
+                }
+                else
+                {
+                    var body = await res.Content.ReadAsStringAsync();
+                    Log.Write($"Skin : {(int)res.StatusCode} {body}");
+                    SkinStatus.Text = (int)res.StatusCode == 429 ? "Trop d'essais, attends une minute et réessaie."
+                        : $"Minecraft a refusé le skin (erreur {(int)res.StatusCode}).";
+                }
+            }
+            catch (Exception ex) { SkinStatus.Text = "Erreur : " + ex.Message; }
+            finally { ApplySkinButton.IsEnabled = true; }
+        }
+
+        /// <summary>Dessine le skin vu de face (tête, corps, bras, jambes et leurs couches).</summary>
+        private static BitmapSource RenderSkinFront(string path, bool slim)
+        {
+            var src = new BitmapImage();
+            src.BeginInit();
+            src.UriSource = new Uri(path);
+            src.CacheOption = BitmapCacheOption.OnLoad;
+            src.EndInit();
+            src.Freeze();
+            if (src.PixelWidth != 64 || (src.PixelHeight != 64 && src.PixelHeight != 32))
+                throw new InvalidDataException("Ce n'est pas un skin : l'image doit faire 64x64 pixels.");
+            bool legacy = src.PixelHeight == 32;
+            int aw = slim ? 3 : 4;
+            const int S = 12;
+
+            var dv = new DrawingVisual();
+            RenderOptions.SetBitmapScalingMode(dv, BitmapScalingMode.NearestNeighbor);
+            using (var dc = dv.RenderOpen())
+            {
+                void P(int sx, int sy, int w, int h, int dx, int dy, bool flip = false)
+                {
+                    BitmapSource b = new CroppedBitmap(src, new Int32Rect(sx, sy, w, h));
+                    if (flip) b = new TransformedBitmap(b, new ScaleTransform(-1, 1));
+                    dc.DrawImage(b, new Rect(dx * S, dy * S, w * S, h * S));
+                }
+                P(8, 8, 8, 8, 4, 0);                               // tête
+                P(20, 20, 8, 12, 4, 8);                            // corps
+                P(44, 20, aw, 12, 4 - aw, 8);                      // bras droit
+                if (legacy) P(44, 20, aw, 12, 12, 8, true); else P(36, 52, aw, 12, 12, 8);   // bras gauche
+                P(4, 20, 4, 12, 4, 20);                            // jambe droite
+                if (legacy) P(4, 20, 4, 12, 8, 20, true); else P(20, 52, 4, 12, 8, 20);      // jambe gauche
+                P(40, 8, 8, 8, 4, 0);                              // chapeau
+                if (!legacy)
+                {
+                    P(20, 36, 8, 12, 4, 8);                        // veste
+                    P(44, 36, aw, 12, 4 - aw, 8);                  // manche droite
+                    P(52, 52, aw, 12, 12, 8);                      // manche gauche
+                    P(4, 36, 4, 12, 4, 20);                        // pantalon droit
+                    P(4, 52, 4, 12, 8, 20);                        // pantalon gauche
+                }
+            }
+            var rtb = new RenderTargetBitmap(16 * S, 32 * S, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            rtb.Freeze();
+            return rtb;
         }
 
         // ------------------------------------------------------------- logs

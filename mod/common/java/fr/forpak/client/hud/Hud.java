@@ -82,6 +82,9 @@ public final class Hud {
         ELEMENTS.add(new Potions());
         ELEMENTS.add(new PvpCounter());
         ELEMENTS.add(new Totems());
+        ELEMENTS.add(new TargetHud());
+        ELEMENTS.add(new DeathPoint());
+        ELEMENTS.add(new ArmorAlert());
     }
 
     /** Dessine le HUD. editing = dans l'éditeur (affiche aussi les éléments vides). */
@@ -93,6 +96,9 @@ public final class Hud {
         Stats.pollClicks(mc);
         int sw = ctx.getScaledWindowWidth();
         int sh = ctx.getScaledWindowHeight();
+        if (!editing) {
+            try { lowHealth(ctx, mc, sw, sh); } catch (Throwable ignored) { }
+        }
 
         for (HudElement e : ELEMENTS) {
             if (!e.isEnabled() || FAILED.contains(e.id)) continue;
@@ -401,6 +407,137 @@ public final class Hud {
                 ctx.drawTextWithShadow(mc.textRenderer, l, x + 4, ry + 3, Ui.WHITE);
                 ry += 14;
             }
+        }
+    }
+
+    // ----------------------------------------------------------------------- Alerte vie basse
+
+    /** Bords de l'écran qui pulsent en rouge quand il te reste 3 cœurs ou moins. */
+    private static void lowHealth(DrawContext ctx, MinecraftClient mc, int sw, int sh) {
+        if (!ForpakClient.CONFIG.lowHpWarning || mc.player.isCreative() || mc.player.isSpectator()) return;
+        float hp = mc.player.getHealth() + mc.player.getAbsorptionAmount();
+        if (hp > 6f || hp <= 0f) return;
+        float danger = 1f - hp / 6f;                                   // 0 → 1
+        float pulse = 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 160.0);
+        int maxA = (int) (110 * (0.35f + 0.65f * danger) * pulse);
+        int bands = 14, step = Math.max(2, Math.min(sw, sh) / 60);
+        for (int i = 0; i < bands; i++) {
+            int a = maxA * (bands - i) / bands;
+            int col = (a << 24) | 0xE01818;
+            int o = i * step;
+            ctx.fill(o, o, sw - o, o + step, col);                    // haut
+            ctx.fill(o, sh - o - step, sw - o, sh - o, col);          // bas
+            ctx.fill(o, o + step, o + step, sh - o - step, col);      // gauche
+            ctx.fill(sw - o - step, o + step, sw - o, sh - o - step, col); // droite
+        }
+    }
+
+    // ----------------------------------------------------------------------- Target HUD
+
+    static class TargetHud extends HudElement {
+        TargetHud() { super("target", "Target HUD", true, 0.56f, 0.66f); }
+
+        private net.minecraft.entity.LivingEntity target(MinecraftClient mc) {
+            if (mc.world == null || Stats.targetId < 0 || System.currentTimeMillis() - Stats.targetTime > 8000) return null;
+            var e = mc.world.getEntityById(Stats.targetId);
+            return e instanceof net.minecraft.entity.LivingEntity l && l.isAlive() ? l : null;
+        }
+
+        @Override public boolean visible(MinecraftClient mc) { return target(mc) != null; }
+        @Override public int width(MinecraftClient mc, boolean editing) { return 132; }
+        @Override public int height(MinecraftClient mc, boolean editing) { return 36; }
+
+        @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
+            var t = target(mc);
+            String name = t != null ? t.getName().getString() : "Adversaire";
+            float hp = t != null ? t.getHealth() + t.getAbsorptionAmount() : 14f;
+            float max = t != null ? Math.max(1f, t.getMaxHealth()) : 20f;
+            double dist = t != null ? mc.player.distanceTo(t) : 3.2;
+            float mine = mc.player.getHealth() + mc.player.getAbsorptionAmount();
+
+            Ui.rect(ctx, x, y, 132, 36, bg());
+            ctx.fill(x + 1, y + 3, x + 3, y + 33, accent());
+            TextRenderer tr = mc.textRenderer;
+            if (tr.getWidth(name) > 120) name = tr.trimToWidth(name, 114) + "..";
+            ctx.drawTextWithShadow(tr, name, x + 7, y + 4, Ui.WHITE);
+
+            // Barre de vie (dorée si absorption)
+            int bw = 118, bx = x + 7, by = y + 15;
+            float pct = Math.min(1f, hp / max);
+            int col = pct > 0.6f ? Ui.GREEN : pct > 0.3f ? Ui.ORANGE : Ui.RED;
+            ctx.fill(bx, by, bx + bw, by + 5, 0x90000000);
+            ctx.fill(bx, by, bx + Math.max(1, (int) (bw * pct)), by + 5, col);
+
+            String hpTxt = String.format("%.1f ❤", hp / 2f);
+            ctx.drawTextWithShadow(tr, hpTxt, x + 7, y + 24, col);
+            String d = String.format("%.1f m", dist);
+            ctx.drawTextWithShadow(tr, d, x + 66 - tr.getWidth(d) / 2, y + 24, Ui.GREY);
+            // Qui gagne ? (comparaison des vies)
+            String w = hp < mine ? "Avantage" : hp > mine ? "Danger" : "Égalité";
+            int wc = hp < mine ? Ui.GREEN : hp > mine ? Ui.RED : Ui.ORANGE;
+            ctx.drawTextWithShadow(tr, w, x + 125 - tr.getWidth(w), y + 24, wc);
+        }
+    }
+
+    // ----------------------------------------------------------------------- Point de mort
+
+    static class DeathPoint extends HudElement {
+        private static final String[] ARROWS = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
+        DeathPoint() { super("deathpoint", "Point de mort", true, 0.5f, 0.02f); }
+
+        private String text(MinecraftClient mc, boolean editing) {
+            double[] p = Stats.deathPos;
+            if (p == null || mc.world == null || mc.player.isDead()
+                    || !mc.world.getRegistryKey().getValue().toString().equals(Stats.deathDim))
+                return editing ? "☠ Mort  120 64 -340 · 85 m ↗" : "";
+            double dx = p[0] - mc.player.getX(), dz = p[2] - mc.player.getZ();
+            double dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < 3) { Stats.deathPos = null; return ""; }           // arrivé : on efface
+            // Direction de la flèche par rapport à là où tu regardes
+            double angle = Math.toDegrees(Math.atan2(-dx, dz)) - mc.player.getYaw();
+            int idx = Math.floorMod((int) Math.round(angle / 45.0), 8);
+            return String.format("☠ Mort  %d %d %d · %d m %s", (int) p[0], (int) p[1], (int) p[2], (int) dist, ARROWS[idx]);
+        }
+
+        @Override public boolean visible(MinecraftClient mc) { return !text(mc, false).isEmpty(); }
+        @Override public int width(MinecraftClient mc, boolean editing) { return mc.textRenderer.getWidth(text(mc, editing)) + 12; }
+        @Override public int height(MinecraftClient mc, boolean editing) { return 15; }
+
+        @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
+            String t = text(mc, editing);
+            Ui.rect(ctx, x, y, width(mc, editing), 15, bg());
+            ctx.fill(x + 1, y + 3, x + 3, y + 12, Ui.RED);
+            ctx.drawTextWithShadow(mc.textRenderer, t, x + 7, y + 4, Ui.WHITE);
+        }
+    }
+
+    // ----------------------------------------------------------------------- Alerte armure
+
+    static class ArmorAlert extends HudElement {
+        private static final String[] NAMES = {"Casque", "Plastron", "Jambières", "Bottes"};
+        ArmorAlert() { super("armoralert", "Alerte armure", true, 0.5f, 0.30f); }
+
+        private String text(MinecraftClient mc, boolean editing) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < ARMOR.length; i++) {
+                ItemStack s = mc.player.getEquippedStack(ARMOR[i]);
+                if (s.isEmpty() || !s.isDamageable()) continue;
+                int pct = (s.getMaxDamage() - s.getDamage()) * 100 / Math.max(1, s.getMaxDamage());
+                if (pct <= 15) sb.append(sb.length() == 0 ? "" : "  ").append(NAMES[i]).append(' ').append(pct).append('%');
+            }
+            if (sb.length() == 0) return editing ? "⚠ Casque 9%" : "";
+            return "⚠ " + sb;
+        }
+
+        @Override public boolean visible(MinecraftClient mc) { return !text(mc, false).isEmpty(); }
+        @Override public int width(MinecraftClient mc, boolean editing) { return mc.textRenderer.getWidth(text(mc, editing)) + 12; }
+        @Override public int height(MinecraftClient mc, boolean editing) { return 15; }
+
+        @Override public void render(DrawContext ctx, MinecraftClient mc, int x, int y, boolean editing) {
+            String t = text(mc, editing);
+            boolean blink = (System.currentTimeMillis() / 500) % 2 == 0;
+            Ui.rect(ctx, x, y, width(mc, editing), 15, blink ? 0xC0601010 : bg());
+            ctx.drawTextWithShadow(mc.textRenderer, t, x + 6, y + 4, blink ? Ui.WHITE : Ui.RED);
         }
     }
 }

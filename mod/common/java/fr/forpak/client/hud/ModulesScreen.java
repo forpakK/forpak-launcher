@@ -44,6 +44,7 @@ public class ModulesScreen extends Screen {
         modules.add(new Module("Anchor Optimizer", "Anchor PvP", 1, () -> c.anchorOptimizer, v -> { c.anchorOptimizer = v; c.save(); }, null));
         modules.add(new Module("ToggleSprint", "Touche G", 1, () -> c.toggleSprintModule, v -> { c.toggleSprintModule = v; c.save(); }, null));
         modules.add(new Module("ToggleSneak", "Touche V", 1, () -> c.toggleSneakModule, v -> { c.toggleSneakModule = v; c.save(); }, null));
+        modules.add(new Module("Alerte vie basse", "Bords rouges", 1, () -> c.lowHpWarning, v -> { c.lowHpWarning = v; c.save(); }, null));
         modules.add(new Module("Zoom", "Maintenir C", 1, () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));
         modules.add(new Module("Freelook", "Maintenir Alt", 1, () -> c.freelook, v -> { c.freelook = v; c.save(); }, null));
 

@@ -392,6 +392,12 @@
                                 <TextBlock Text="Tes screenshots" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
+                        <RadioButton x:Name="NavSkin" Style="{StaticResource SideNav}" GroupName="nav" Checked="Nav_Checked">
+                            <StackPanel>
+                                <TextBlock Text="Skin" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Change ton skin" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
                         <RadioButton x:Name="NavLogs" Style="{StaticResource SideNav}" GroupName="nav" Checked="Nav_Checked">
                             <StackPanel>
                                 <TextBlock Text="Logs" FontSize="13" FontWeight="SemiBold"/>
@@ -451,7 +457,14 @@
                         <TextBlock Text="C  L  I  E  N  T" HorizontalAlignment="Center" FontSize="13" FontWeight="SemiBold"
                                    Foreground="#8CF5CF" Margin="0,-6,0,0"/>
                         <TextBlock x:Name="SubtitleText" HorizontalAlignment="Center" TextAlignment="Center" FontSize="14"
-                                   Foreground="#C9D2E3" TextWrapping="Wrap" Margin="0,14,0,24"/>
+                                   Foreground="#C9D2E3" TextWrapping="Wrap" Margin="0,14,0,10"/>
+                        <Border x:Name="OnlinePill" HorizontalAlignment="Center" CornerRadius="11" Padding="11,4" Margin="0,0,0,18"
+                                Background="#B00D1526" BorderBrush="#2A3A55" BorderThickness="1" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="7" Height="7" Fill="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                <TextBlock x:Name="OnlineText" FontSize="11.5" Foreground="#C9D2E3"/>
+                            </StackPanel>
+                        </Border>
 
                         <!-- Carte de lancement -->
                         <Border Style="{StaticResource Glass}" Padding="16">
@@ -1106,6 +1119,49 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
                                    Text="Pas encore de captures. En jeu, appuie sur F2 pour en prendre une."/>
                     </Grid>
+                </Grid>
+
+                <!-- ============ SKIN ============ -->
+                <Grid x:Name="SkinPage" Grid.Row="1" Margin="24,0,24,22" Visibility="Collapsed">
+                    <Border Style="{StaticResource Glass}" Background="#F0091222" Padding="28" HorizontalAlignment="Center"
+                            VerticalAlignment="Center" Width="720">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border CornerRadius="14" Background="#060A14" Height="330" Margin="0,0,24,0">
+                                <Grid>
+                                    <Image x:Name="SkinPreview" Stretch="Uniform" Margin="30" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                    <TextBlock x:Name="SkinPreviewLabel" Text="Ton skin actuel" FontSize="10.5" Foreground="{StaticResource Muted}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10"/>
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Ton skin" FontSize="24" FontWeight="Bold"/>
+                                <TextBlock Text="Change ton skin Minecraft directement depuis Velox. Il faut une image .png de 64x64 (tu en trouves plein sur NameMC)."
+                                           FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,18"/>
+                                <Button Style="{StaticResource GhostButton}" Content="Choisir une image .png" Padding="14,9"
+                                        HorizontalAlignment="Left" Click="PickSkin_Click"/>
+                                <TextBlock x:Name="SkinFileText" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,6,0,0"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="Modèle" FontWeight="SemiBold" Margin="0,18,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="SkinClassic" Style="{StaticResource Pill}" GroupName="skinmodel" Content="Classique (bras larges)"
+                                                 IsChecked="True" Checked="SkinModel_Checked"/>
+                                    <RadioButton x:Name="SkinSlim" Style="{StaticResource Pill}" GroupName="skinmodel" Content="Fin (bras fins)"
+                                                 Margin="8,0,0,0" Checked="SkinModel_Checked"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
+                                    <Button x:Name="ApplySkinButton" Style="{StaticResource PrimaryButton}" Content="Appliquer le skin"
+                                            Padding="18,10" IsEnabled="False" Click="ApplySkin_Click"/>
+                                    <Button Style="{StaticResource GhostButton}" Content="Trouver des skins" Padding="14,10" Margin="10,0,0,0"
+                                            Click="NameMc_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="SkinStatus" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </Grid>
 
                 <!-- ============ LOGS ============ -->

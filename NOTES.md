@@ -1,1 +1,1 @@
-Nouveau : icône Velox ⚡ à côté du pseudo des joueurs qui utilisent Velox Client (au-dessus de la tête et dans Tab), et ils ont tous la cape Velox. Module « Icône Velox » dans Visuel.
+Gros ajout ! En jeu : Target HUD (vie et distance de ton adversaire), point de mort avec flèche, alerte armure cassée, bords rouges quand ta vie est basse. Launcher : nouvelle page Skin pour changer ton skin, et le nombre de joueurs Velox en jeu sur l'accueil.
