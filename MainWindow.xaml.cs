@@ -53,7 +53,7 @@ namespace ForpakLauncher
             ApplyTheme(_settings.Theme);
             BuildThemePanel();
             BuildCapePanel();
-            VeloxApi.WriteShared(_settings);
+            ForpakLauncher.Core.VeloxApi.WriteShared(_settings);
             VersionLabel.Text = "v" + Updater.CurrentVersionText;
 
             FabricSwitch.IsChecked = _settings.UseFabric;
@@ -693,7 +693,7 @@ namespace ForpakLauncher
             _settings.DiscordStatus = DiscordSwitch.IsChecked == true;
             _settings.LauncherBoost = BoostSwitch.IsChecked == true;
             _settings.StreamerMode = StreamerSwitch.IsChecked == true;
-            VeloxApi.WriteShared(_settings);
+            ForpakLauncher.Core.VeloxApi.WriteShared(_settings);
             _discord.Enabled = _settings.DiscordStatus;
             if (_discord.Enabled) _discord.Set("Dans le launcher", "Prépare sa partie"); else _discord.Clear();
             if (_settings.CurseForgeApiKey != CfKeyBox.Text.Trim())
@@ -1582,7 +1582,7 @@ namespace ForpakLauncher
                 {
                     _settings.Cape = (string)((RadioButton)s).Tag;
                     _settings.Save();
-                    VeloxApi.WriteShared(_settings);
+                    ForpakLauncher.Core.VeloxApi.WriteShared(_settings);
                     if (SkinStatus != null) SkinStatus.Text = "Cape choisie ✓  Elle s'affichera en jeu (et pour tes amis Velox).";
                 };
                 CapePanel.Children.Add(rb);
@@ -1704,7 +1704,7 @@ namespace ForpakLauncher
                 var names = friends.ToList();
                 if (_account != null) names.Add(_account.Name);
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-                var json = await _http.GetStringAsync(VeloxApi.Base + "/leaderboard?names=" + Uri.EscapeDataString(string.Join(",", names)), cts.Token);
+                var json = await _http.GetStringAsync(ForpakLauncher.Core.VeloxApi.Base + "/leaderboard?names=" + Uri.EscapeDataString(string.Join(",", names)), cts.Token);
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 var rows = doc.RootElement.GetProperty("players").EnumerateArray().Select(p => new
                 {
@@ -1797,7 +1797,7 @@ namespace ForpakLauncher
             if (_settings.Friends.Count >= 50) { FriendsCount.Text = "50 amis maximum."; return; }
             _settings.Friends.Add(name);
             _settings.Save();
-            VeloxApi.WriteShared(_settings);
+            ForpakLauncher.Core.VeloxApi.WriteShared(_settings);
             FriendBox.Text = "";
             await RefreshFriendsAsync();
         }
@@ -1812,7 +1812,7 @@ namespace ForpakLauncher
             if (sender is not FrameworkElement fe || fe.Tag is not FriendView v) return;
             _settings.Friends.RemoveAll(f => f.Equals(v.Name, StringComparison.OrdinalIgnoreCase));
             _settings.Save();
-            VeloxApi.WriteShared(_settings);
+            ForpakLauncher.Core.VeloxApi.WriteShared(_settings);
             await RefreshFriendsAsync();
         }
 
