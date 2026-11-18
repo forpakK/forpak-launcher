@@ -45,7 +45,7 @@ public class ModulesScreen extends Screen {
         modules.add(new Module("ToggleSprint", "Touche G", 1, () -> c.toggleSprintModule, v -> { c.toggleSprintModule = v; c.save(); }, null));
         modules.add(new Module("ToggleSneak", "Touche V", 1, () -> c.toggleSneakModule, v -> { c.toggleSneakModule = v; c.save(); }, null));
         modules.add(new Module("Alerte vie basse", "Bords rouges", 1, () -> c.lowHpWarning, v -> { c.lowHpWarning = v; c.save(); }, null));
-        modules.add(new Module("Zoom", "Maintenir C", 1, () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));
+        modules.add(new Module("Zoom", "C + molette", 1, () -> c.zoom, v -> { c.zoom = v; c.save(); }, null));
         modules.add(new Module("Freelook", "Maintenir Alt", 1, () -> c.freelook, v -> { c.freelook = v; c.save(); }, null));
 
         modules.add(new Module("Viseur perso", "Forme et couleur", 2, () -> c.crosshair, v -> { c.crosshair = v; c.save(); }, CrosshairScreen::new));
@@ -57,6 +57,9 @@ public class ModulesScreen extends Screen {
         }, WeatherScreen::new));
         modules.add(new Module("Sans particules", "Plus de FPS", 2, () -> c.noParticles, v -> { c.noParticles = v; c.save(); }, null));
         modules.add(new Module("Icône Velox", "À côté du pseudo", 2, () -> c.veloxIcon, v -> { c.veloxIcon = v; c.save(); }, null));
+        modules.add(new Module("Effet de kill", "Animation au kill", 2, () -> c.killEffect != 0, v -> {
+            c.killEffect = v ? (c.killEffect == 0 ? 1 : c.killEffect) : 0; c.save(); }, KillEffectScreen::new));
+        modules.add(new Module("Mode streamer", "Cache coords et pseudo", 2, () -> c.streamerMode, v -> { c.streamerMode = v; c.save(); }, null));
         modules.add(new Module("Montrer mon serveur", "Pour tes amis Velox", 2, () -> c.shareServer, v -> { c.shareServer = v; c.save(); }, null));
         modules.add(new Module("Cape Velox", "Ta cape", 2, () -> c.cape, v -> { c.cape = v; c.save(); }, null));
         modules.add(new Module("Menu Velox", "Écran titre perso", 2, () -> c.customMenu, v -> { c.customMenu = v; c.save(); }, null));

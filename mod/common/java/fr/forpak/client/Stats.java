@@ -77,6 +77,8 @@ public final class Stats {
     private static boolean wasDead;
 
     // --- Target HUD : dernier joueur tapé
+    public static String lastVictimName = "";
+    public static long lastVictimHit;
     public static int targetId = -1;
     public static long targetTime;
 
@@ -135,14 +137,32 @@ public final class Stats {
         else combo = 1;
         lastTargetId = target.getId();
         if (target instanceof net.minecraft.entity.LivingEntity) { targetId = target.getId(); targetTime = now; }
+        if (target instanceof PlayerEntity) { lastVictimName = target.getName().getString(); lastVictimHit = now; }
         lastHitTime = now;
+    }
+
+    private static boolean myVictim(String name) {
+        return name.equals(lastVictimName) && System.currentTimeMillis() - lastVictimHit < 6000;
     }
 
     public static void onTotemPop(String name) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player != null && mc.player.getName().getString().equals(name)) { sessionTotems++; return; }
+        if (myVictim(name)) VeloxUsers.pendingPops.incrementAndGet();
         POPS.merge(name, 1, Integer::sum);
         POP_TIME.put(name, System.currentTimeMillis());
+    }
+
+    /** Un joueur meurt : si c'est toi qui l'as tapé juste avant, c'est un kill. */
+    public static void onDeath(Entity victim) {
+        String name = victim.getName().getString();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player != null && victim != mc.player && myVictim(name)) {
+            VeloxUsers.pendingKills.incrementAndGet();
+            lastVictimName = "";
+            Effects.play(victim);
+        }
+        onDeath(name);
     }
 
     public static void onDeath(String name) {

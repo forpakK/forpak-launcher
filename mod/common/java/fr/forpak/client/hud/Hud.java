@@ -51,6 +51,7 @@ public final class Hud {
         ELEMENTS.add(text("ping", "Ping", true, 0.005f, 0.09f, "Ping", Hud::ping));
         ELEMENTS.add(text("coords", "Coordonnées", true, 0.005f, 0.13f, "XYZ", mc -> {
             ClientPlayerEntity p = mc.player;
+            if (fr.forpak.client.Shared.streamerOn()) return "cachées";
             return p == null ? "0 0 0" : p.getBlockPos().getX() + " " + p.getBlockPos().getY() + " " + p.getBlockPos().getZ();
         }));
         ELEMENTS.add(text("speed", "Vitesse", false, 0.005f, 0.17f, "Vitesse", mc -> String.format("%.2f m/s", Stats.speed)));
@@ -99,6 +100,7 @@ public final class Hud {
         if (!editing) {
             try { lowHealth(ctx, mc, sw, sh); } catch (Throwable ignored) { }
         }
+        try { fr.forpak.client.Toasts.render(ctx, mc, sw); } catch (Throwable ignored) { }
 
         for (HudElement e : ELEMENTS) {
             if (!e.isEnabled() || FAILED.contains(e.id)) continue;
@@ -496,6 +498,8 @@ public final class Hud {
             // Direction de la flèche par rapport à là où tu regardes
             double angle = Math.toDegrees(Math.atan2(-dx, dz)) - mc.player.getYaw();
             int idx = Math.floorMod((int) Math.round(angle / 45.0), 8);
+            if (fr.forpak.client.Shared.streamerOn())
+                return String.format("☠ Mort · %d m %s", (int) dist, ARROWS[idx]);
             return String.format("☠ Mort  %d %d %d · %d m %s", (int) p[0], (int) p[1], (int) p[2], (int) dist, ARROWS[idx]);
         }
 

@@ -45,10 +45,19 @@ public final class Capes {
     }
 
     /** Cape à afficher pour ce joueur, ou null pour garder la cape normale. */
+    public static Identifier byName(String name) {
+        if (name == null) return VELOX;
+        return switch (name) {
+            case "aurora", "neige", "flamme", "nuit" -> Identifier.of("veloxclient", "textures/cape/" + name + ".png");
+            default -> VELOX;
+        };
+    }
+
     public static Identifier capeFor(UUID uuid) {
         if (ForpakClient.CONFIG == null || !ForpakClient.CONFIG.cape) return null;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player != null && mc.player.getUuid().equals(uuid)) return VELOX;
+        if (VeloxUsers.isMe(uuid)) return byName(Shared.cape);
+        String chosen = VeloxUsers.capeOf(uuid);
+        if (chosen != null) return byName(chosen);
         Identifier friend = FRIENDS.get(uuid.toString().replace("-", "").toLowerCase());
         if (friend != null) return friend;
         return VeloxUsers.isVelox(uuid) ? VELOX : null;   // tous les joueurs Velox ont la cape

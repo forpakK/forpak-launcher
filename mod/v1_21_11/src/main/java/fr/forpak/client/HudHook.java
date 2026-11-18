@@ -42,4 +42,19 @@ public final class HudHook {
     public static java.util.UUID profileId(net.minecraft.client.network.PlayerListEntry e) {
         return e.getProfile().id();
     }
+
+    /** Quitte le monde actuel et rejoint un serveur (invitation d'un ami). */
+    public static void joinServer(net.minecraft.client.MinecraftClient mc, String address) {
+        mc.execute(() -> {
+            if (mc.world != null) {
+                mc.world.disconnect(net.minecraft.text.Text.empty());
+                mc.disconnect(new net.minecraft.client.gui.screen.TitleScreen(), false);
+            }
+            var parent = new net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen(new net.minecraft.client.gui.screen.TitleScreen());
+            net.minecraft.client.gui.screen.multiplayer.ConnectScreen.connect(parent, mc,
+                    net.minecraft.client.network.ServerAddress.parse(address),
+                    new net.minecraft.client.network.ServerInfo(address, address, net.minecraft.client.network.ServerInfo.ServerType.OTHER),
+                    false, null);
+        });
+    }
 }

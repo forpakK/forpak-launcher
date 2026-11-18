@@ -17,6 +17,9 @@ public class NameTagMixin {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || !mc.isOnThread()) return;          // jamais côté serveur (solo)
         PlayerEntity self = (PlayerEntity) (Object) this;
-        if (VeloxUsers.isVelox(self.getUuid())) cir.setReturnValue(VeloxUsers.decorate(cir.getReturnValue()));
+        Text name = cir.getReturnValue();
+        if (fr.forpak.client.Shared.streamerOn() && VeloxUsers.isMe(self.getUuid())) name = Text.literal("Moi");
+        if (VeloxUsers.isVelox(self.getUuid())) name = VeloxUsers.decorate(name);
+        cir.setReturnValue(name);
     }
 }

@@ -26,7 +26,7 @@ public class ProfilesScreen extends Screen {
         clicks.poll(client);
         Config c = ForpakClient.CONFIG;
 
-        int pw = 290, ph = 70 + NAMES.length * 36 + 30, px = (width - pw) / 2, py = (height - ph) / 2;
+        int pw = 330, ph = 70 + NAMES.length * 36 + 30, px = (width - pw) / 2, py = (height - ph) / 2;
         Ui.rect(ctx, px, py, pw, ph, Ui.BG_SOLID);
         Ui.outline(ctx, px, py, pw, ph, 0xFF2A6B5E);
         ctx.drawTextWithShadow(textRenderer, "Profils de HUD", px + 12, py + 12, Ui.WHITE);
@@ -37,7 +37,20 @@ public class ProfilesScreen extends Screen {
             boolean saved = c.profiles.containsKey(name);
             Ui.rect(ctx, px + 12, y, pw - 24, 30, Ui.CARD);
             ctx.drawTextWithShadow(textRenderer, name, px + 22, y + 7, Ui.WHITE);
-            ctx.drawTextWithShadow(textRenderer, saved ? "enregistré" : "vide", px + 22, y + 18, saved ? Ui.GREEN : Ui.GREY);
+            String linked = null;
+            for (var e : c.serverProfiles.entrySet()) if (e.getValue().equals(name)) linked = e.getKey();
+            ctx.drawTextWithShadow(textRenderer, linked != null ? "auto sur " + linked : saved ? "enregistré" : "vide",
+                    px + 22, y + 18, linked != null ? Ui.ACCENT : saved ? Ui.GREEN : Ui.GREY);
+            String addr = client.getCurrentServerEntry() != null && client.world != null && !client.isInSingleplayer()
+                    ? client.getCurrentServerEntry().address.toLowerCase() : null;
+            if (saved && addr != null) {
+                boolean on = name.equals(c.serverProfiles.get(addr));
+                if (Ui.button(ctx, textRenderer, on ? "Délier" : "Ce serveur", px + pw - 12 - 238, y + 5, 66, 20, mouseX, mouseY, clicks.left, false)) {
+                    if (on) c.serverProfiles.remove(addr); else c.serverProfiles.put(addr, name);
+                    c.save();
+                    flash(on ? "Profil délié de " + addr : "Profil " + name + " chargé auto sur " + addr);
+                }
+            }
             if (Ui.button(ctx, textRenderer, "Sauvegarder", px + pw - 12 - 166, y + 5, 80, 20, mouseX, mouseY, clicks.left, false)) {
                 c.saveProfile(name);
                 flash("Profil " + name + " sauvegardé");

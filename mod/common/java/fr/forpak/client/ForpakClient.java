@@ -16,6 +16,7 @@ public class ForpakClient implements ClientModInitializer {
 
     private final boolean[] keyWas = new boolean[GLFW.GLFW_KEY_LAST + 1];
     private boolean zooming = false;
+    private String lastAddress = "";
     private int savedFov = 70;
     private boolean savedSmooth = false;
 
@@ -34,7 +35,10 @@ public class ForpakClient implements ClientModInitializer {
                     && player.getMainHandStack().isOf(net.minecraft.item.Items.END_CRYSTAL)) {
                 var b = world.getBlockState(hit.getBlockPos());
                 if (b.isOf(net.minecraft.block.Blocks.OBSIDIAN) || b.isOf(net.minecraft.block.Blocks.BEDROCK))
+                {
                     Stats.sessionCrystals++;
+                    VeloxUsers.pendingCrystals.incrementAndGet();
+                }
             }
             return net.minecraft.util.ActionResult.PASS;
         });
@@ -61,6 +65,7 @@ public class ForpakClient implements ClientModInitializer {
         boolean panic = pressed(handle, GLFW.GLFW_KEY_F8);
         boolean sprint = pressed(handle, GLFW.GLFW_KEY_G);
         boolean sneak = pressed(handle, GLFW.GLFW_KEY_V);
+        boolean join = pressed(handle, GLFW.GLFW_KEY_J);
 
         Stats.tick(client);
         Freelook.tick(client, GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS);
@@ -85,18 +90,30 @@ public class ForpakClient implements ClientModInitializer {
         if (sprint && !CONFIG.sprintToggled) client.options.sprintKey.setPressed(false);
         if (sneak && !CONFIG.sneakToggled) client.options.sneakKey.setPressed(false);
 
-        // Zoom : maintenir C
+        // Zoom fluide : maintenir C (molette = plus ou moins de zoom)
         boolean wantZoom = CONFIG.zoom && inGame && GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_C) == GLFW.GLFW_PRESS;
         if (wantZoom && !zooming) {
             zooming = true;
-            savedFov = client.options.getFov().getValue();
             savedSmooth = client.options.smoothCameraEnabled;
-            client.options.getFov().setValue(Math.max(30, Math.min(CONFIG.zoomFov, savedFov)));
             client.options.smoothCameraEnabled = true;
+            Zoom.start();
         } else if (!wantZoom && zooming) {
             zooming = false;
-            client.options.getFov().setValue(savedFov);
             client.options.smoothCameraEnabled = savedSmooth;
+            Zoom.stop();
+        }
+
+        // Invitation reçue : J pour rejoindre
+        if (inGame && join) VeloxUsers.acceptInvite(client);
+
+        // Profil de HUD lié au serveur : chargé automatiquement en arrivant
+        String addr = client.getCurrentServerEntry() != null && client.world != null && !client.isInSingleplayer()
+                ? client.getCurrentServerEntry().address.toLowerCase() : "";
+        if (!addr.equals(lastAddress)) {
+            lastAddress = addr;
+            String prof = CONFIG.serverProfiles.get(addr);
+            if (!addr.isEmpty() && prof != null && CONFIG.loadProfile(prof))
+                Toasts.show("Profil " + prof, "Chargé pour " + addr, fr.forpak.client.hud.Ui.ACCENT, 4000);
         }
     }
 }

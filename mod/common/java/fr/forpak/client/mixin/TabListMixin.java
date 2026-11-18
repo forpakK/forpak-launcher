@@ -15,6 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class TabListMixin {
     @Inject(method = "getPlayerName", at = @At("RETURN"), cancellable = true)
     private void velox$icon(PlayerListEntry entry, CallbackInfoReturnable<Text> cir) {
-        if (VeloxUsers.isVelox(HudHook.profileId(entry))) cir.setReturnValue(VeloxUsers.decorate(cir.getReturnValue()));
+        var id = HudHook.profileId(entry);
+        Text name = cir.getReturnValue();
+        if (fr.forpak.client.Shared.streamerOn() && VeloxUsers.isMe(id)) name = Text.literal("Moi");
+        if (VeloxUsers.isVelox(id)) name = VeloxUsers.decorate(name);
+        cir.setReturnValue(name);
     }
 }

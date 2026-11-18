@@ -24,7 +24,11 @@ public class Config {
     public boolean customMenu = true;
     public boolean cape = true;
     public boolean veloxIcon = true;
-    public boolean shareServer = true;  // tes amis Velox voient sur quel serveur tu joues
+    public boolean shareServer = true;
+    public int killEffect = 1;           // 0 aucun, 1 éclair, 2 flocons, 3 étincelles, 4 cœurs, 5 flammes
+    public double zoomLevel = 4.0;       // zoom de départ (x4)
+    public boolean streamerMode = false; // cache coordonnées, pseudo et serveur
+    public Map<String, String> serverProfiles = new HashMap<>(); // adresse du serveur -> profil de HUD  // tes amis Velox voient sur quel serveur tu joues
     public boolean lowHpWarning = true; // bords rouges quand la vie est basse    // icône Velox à côté du pseudo des joueurs Velox
     public boolean freelook = true;
     public int weatherMode = 0;       // 0 normale, 1 clair, 2 pluie, 3 neige
@@ -118,6 +122,7 @@ public class Config {
                     if (c.pos == null) c.pos = new HashMap<>();
                     if (c.styles == null) c.styles = new HashMap<>();
                     if (c.profiles == null) c.profiles = new HashMap<>();
+                    if (c.serverProfiles == null) c.serverProfiles = new HashMap<>();
                     return c;
                 }
             }

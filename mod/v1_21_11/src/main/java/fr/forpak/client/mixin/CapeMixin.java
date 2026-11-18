@@ -18,7 +18,7 @@ public class CapeMixin {
         Identifier cape = Capes.capeFor(((AbstractClientPlayerEntity) (Object) this).getUuid());
         if (cape == null) return;
         SkinTextures t = cir.getReturnValue();
-        AssetInfo.TextureAsset asset = new AssetInfo.TextureAssetInfo(Identifier.of("veloxclient", "cape/velox"), cape);
+        AssetInfo.TextureAsset asset = new AssetInfo.TextureAssetInfo(Identifier.of("veloxclient", cape.getPath().replace("textures/", "").replace(".png", "")), cape);
         cir.setReturnValue(new SkinTextures(t.body(), asset, t.elytra(), t.model(), t.secure()));
     }
 }

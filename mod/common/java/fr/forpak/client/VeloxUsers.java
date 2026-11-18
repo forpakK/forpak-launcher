@@ -15,9 +15,13 @@ import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.HashSet;
+import fr.forpak.client.hud.Ui;
 import java.util.HexFormat;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Qui joue avec Velox Client ? On se signale au serveur Velox (vérifié par Mojang)
@@ -33,6 +37,19 @@ public final class VeloxUsers {
     public static final String ICON = "";
 
     private static volatile Set<String> online = Set.of();
+    private static volatile Map<String, String> capes = Map.of();
+
+    // Stats de la semaine à envoyer (classement entre amis)
+    public static final AtomicInteger pendingKills = new AtomicInteger();
+    public static final AtomicInteger pendingPops = new AtomicInteger();
+    public static final AtomicInteger pendingCrystals = new AtomicInteger();
+
+    // Invitation en attente (J pour rejoindre)
+    private static volatile String inviteFrom, inviteServer;
+    private static volatile long inviteAt;
+    private static final Set<Long> seenInvites = new HashSet<>();
+    private static final Map<String, Boolean> friendOnline = new HashMap<>();
+    private static boolean friendsBaseline = false;
     private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 
     public static void start() {
@@ -48,17 +65,23 @@ public final class VeloxUsers {
     private static long lastStatus = 0;
 
     private static void loop() {
-        long lastPing = 0, lastRefresh = 0;
+        long lastPing = 0, lastRefresh = 0, lastFriends = 0, lastStats = 0;
         while (true) {
             try {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 boolean inWorld = mc != null && mc.world != null;
                 long now = System.currentTimeMillis();
+                Shared.reload();
                 if ((token == null || now - lastPing > 15 * 60 * 1000) && now - lastPing > 60_000) {
                     lastPing = now;
                     ping();
                 }
-                if (token != null) status(mc);
+                if (token != null) {
+                    status(mc);
+                    inbox();
+                    if (now - lastStats > 60_000) { lastStats = now; sendStats(); }
+                }
+                if (now - lastFriends > 30_000) { lastFriends = now; friends(); }
                 if (inWorld && now - lastRefresh > 60_000) { lastRefresh = now; refresh(); }
                 Thread.sleep(10_000);
             } catch (InterruptedException e) {
@@ -69,33 +92,19 @@ public final class VeloxUsers {
         }
     }
 
-    /** Où je joue : adresse du serveur, « solo », « menu », « private » ou « hidden ». */
-    private static String currentServer(MinecraftClient mc) {
-        if (mc.world == null) return "menu";
-        if (ForpakClient.CONFIG != null && !ForpakClient.CONFIG.shareServer) return "hidden";
-        if (mc.isInSingleplayer()) return "solo";
-        var entry = mc.getCurrentServerEntry();
-        if (entry == null || entry.address == null) return "hidden";
-        String a = entry.address.trim().toLowerCase();
-        if (a.startsWith("localhost") || a.startsWith("127.") || a.startsWith("192.168.") || a.startsWith("10.")
-                || a.matches("^172\\.(1[6-9]|2\\d|3[01])\\..*") || a.endsWith(".local")) return "private";
-        return a.replaceAll("[^a-z0-9.\\-:_]", "");
+    private static HttpResponse<String> post(String path, JsonObject b) throws Exception {
+        return HTTP.send(HttpRequest.newBuilder(URI.create(API + path))
+                .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(b.toString())).build(), HttpResponse.BodyHandlers.ofString());
     }
 
-    /** Envoie mon statut : tout de suite si je change de serveur, sinon chaque minute. */
-    private static void status(MinecraftClient mc) throws Exception {
-        String server = currentServer(mc);
-        long now = System.currentTimeMillis();
-        if (server.equals(lastServer) && now - lastStatus < 60_000) return;
-        JsonObject b = new JsonObject();
-        b.addProperty("id", myId);
-        b.addProperty("token", token);
+    private static JsonObject authBody() {
+        JsonObject b = authBody();
         b.addProperty("server", server);
-        var r = HTTP.send(HttpRequest.newBuilder(URI.create(API + "/status"))
-                .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(b.toString())).build(), HttpResponse.BodyHandlers.discarding());
+        b.addProperty("cape", Shared.cape);
+        var r = post("/status", b);
         if (r.statusCode() == 403) { token = null; return; }      // jeton périmé : on se re-signale
-        lastServer = server;
+        lastServer = key;
         lastStatus = now;
     }
 
@@ -141,6 +150,11 @@ public final class VeloxUsers {
         for (var e : JsonParser.parseString(res.body()).getAsJsonObject().getAsJsonArray("users"))
             set.add(e.getAsString().toLowerCase());
         online = set;
+        Map<String, String> cp = new HashMap<>();
+        JsonObject root = JsonParser.parseString(res.body()).getAsJsonObject();
+        if (root.has("capes"))
+            for (var e : root.getAsJsonObject("capes").entrySet()) cp.put(e.getKey(), e.getValue().getAsString());
+        capes = cp;
     }
 
     public static boolean isVelox(UUID uuid) {
@@ -149,6 +163,16 @@ public final class VeloxUsers {
         UUID me = mc.getSession().getUuidOrNull();
         if (uuid.equals(me) || (mc.player != null && uuid.equals(mc.player.getUuid()))) return true;
         return online.contains(uuid.toString().replace("-", "").toLowerCase());
+    }
+
+    /** Cape choisie par un joueur Velox (null = cape Velox de base). */
+    public static String capeOf(UUID uuid) {
+        return capes.get(uuid.toString().replace("-", "").toLowerCase());
+    }
+
+    public static boolean isMe(UUID uuid) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        return uuid != null && (uuid.equals(mc.getSession().getUuidOrNull()) || (mc.player != null && uuid.equals(mc.player.getUuid())));
     }
 
     /** Ajoute l'icône Velox devant un pseudo. */

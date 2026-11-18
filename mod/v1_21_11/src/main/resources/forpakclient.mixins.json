@@ -13,7 +13,9 @@
     "WeatherBiomeMixin",
     "ParticlesMixin",
     "NameTagMixin",
-    "TabListMixin"
+    "TabListMixin",
+    "ScrollMixin",
+    "FovMixin"
   ],
   "injectors": {
     "defaultRequire": 0

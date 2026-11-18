@@ -23,6 +23,6 @@ public class EntityStatusMixin {
         if (!(e instanceof PlayerEntity)) return;
         String name = e.getName().getString();
         if (packet.getStatus() == 35) Stats.onTotemPop(name);
-        else if (packet.getStatus() == 3) Stats.onDeath(name);
+        else if (packet.getStatus() == 3) Stats.onDeath(e);
     }
 }
