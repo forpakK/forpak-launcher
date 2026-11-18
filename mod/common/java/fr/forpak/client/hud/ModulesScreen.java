@@ -57,6 +57,7 @@ public class ModulesScreen extends Screen {
         }, WeatherScreen::new));
         modules.add(new Module("Sans particules", "Plus de FPS", 2, () -> c.noParticles, v -> { c.noParticles = v; c.save(); }, null));
         modules.add(new Module("Icône Velox", "À côté du pseudo", 2, () -> c.veloxIcon, v -> { c.veloxIcon = v; c.save(); }, null));
+        modules.add(new Module("Montrer mon serveur", "Pour tes amis Velox", 2, () -> c.shareServer, v -> { c.shareServer = v; c.save(); }, null));
         modules.add(new Module("Cape Velox", "Ta cape", 2, () -> c.cape, v -> { c.cape = v; c.save(); }, null));
         modules.add(new Module("Menu Velox", "Écran titre perso", 2, () -> c.customMenu, v -> { c.customMenu = v; c.save(); }, null));
     }

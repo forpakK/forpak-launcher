@@ -1,1 +1,1 @@
-Gros ajout ! En jeu : Target HUD (vie et distance de ton adversaire), point de mort avec flèche, alerte armure cassée, bords rouges quand ta vie est basse. Launcher : nouvelle page Skin pour changer ton skin, et le nombre de joueurs Velox en jeu sur l'accueil.
+Nouveau : page Amis ! Ajoute le pseudo de tes potes : tu vois qui est en jeu, sur quel serveur, et tu les rejoins en un clic. En jeu, « Montrer mon serveur » (Modules → Visuel) pour cacher ton serveur si tu veux.

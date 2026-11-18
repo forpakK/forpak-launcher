@@ -24,6 +24,7 @@ public class Config {
     public boolean customMenu = true;
     public boolean cape = true;
     public boolean veloxIcon = true;
+    public boolean shareServer = true;  // tes amis Velox voient sur quel serveur tu joues
     public boolean lowHpWarning = true; // bords rouges quand la vie est basse    // icône Velox à côté du pseudo des joueurs Velox
     public boolean freelook = true;
     public int weatherMode = 0;       // 0 normale, 1 clair, 2 pluie, 3 neige

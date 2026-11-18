@@ -301,7 +301,7 @@ namespace ForpakLauncher
             var pages = new (RadioButton nav, FrameworkElement page)[]
             {
                 (NavHome, HomePage), (NavMods, ModsPage), (NavPacks, PacksPage),
-                (NavServers, ServersPage), (NavShots, ShotsPage), (NavSkin, SkinPage), (NavLogs, LogsPage), (NavSettings, SettingsPage)
+                (NavServers, ServersPage), (NavShots, ShotsPage), (NavFriends, FriendsPage), (NavSkin, SkinPage), (NavLogs, LogsPage), (NavSettings, SettingsPage)
             };
             FrameworkElement shown = HomePage;
             foreach (var (nav, page) in pages)
@@ -318,6 +318,7 @@ namespace ForpakLauncher
             if (NavShots.IsChecked == true) LoadShots();
             if (NavLogs.IsChecked == true) LoadLogs();
             if (NavSkin.IsChecked == true) LoadSkinPage();
+            if (NavFriends.IsChecked == true) _ = RefreshFriendsAsync();
             if (NavSettings.IsChecked == true) LoadSettingsPage();
         }
 
@@ -1461,9 +1462,13 @@ namespace ForpakLauncher
         private void StartOnlineCounter()
         {
             _onlineTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-            _onlineTimer.Tick += async (_, _) => await RefreshOnlineAsync();
+            _onlineTimer.Tick += async (_, _) => { await RefreshOnlineAsync(); await RefreshFriendsAsync(); };
             _onlineTimer.Start();
             _ = RefreshOnlineAsync();
+            _ = RefreshFriendsAsync();
+            var fast = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+            fast.Tick += async (_, _) => { if (NavFriends.IsChecked == true && IsVisible) await RefreshFriendsAsync(); };
+            fast.Start();
         }
 
         private async Task RefreshOnlineAsync()
@@ -1479,6 +1484,139 @@ namespace ForpakLauncher
                 OnlinePill.Visibility = Visibility.Visible;
             }
             catch { OnlinePill.Visibility = Visibility.Collapsed; }
+        }
+
+        // ------------------------------------------------------------- amis
+
+        private bool _friendsLoading;
+
+        private static string Ago(long ms)
+        {
+            var t = TimeSpan.FromMilliseconds(Math.Max(0, ms));
+            if (t.TotalMinutes < 1) return "à l'instant";
+            if (t.TotalHours < 1) return $"il y a {(int)t.TotalMinutes} min";
+            if (t.TotalDays < 1) return $"il y a {(int)t.TotalHours} h";
+            return $"il y a {(int)t.TotalDays} j";
+        }
+
+        private async Task RefreshFriendsAsync()
+        {
+            if (_friendsLoading) return;
+            var names = _settings.Friends.ToList();
+            FriendsEmptyText.Visibility = names.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (names.Count == 0)
+            {
+                FriendsList.ItemsSource = null;
+                FriendsCount.Text = "";
+                NavFriendsSub.Text = "Tes potes Velox";
+                return;
+            }
+            _friendsLoading = true;
+            try
+            {
+                var data = new Dictionary<string, System.Text.Json.JsonElement>(StringComparer.OrdinalIgnoreCase);
+                long serverNow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                bool ok = false;
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                    var json = await _http.GetStringAsync(VeloxApi + "/friends?names=" + Uri.EscapeDataString(string.Join(",", names)), cts.Token);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("now", out var n)) serverNow = n.GetInt64();
+                    foreach (var f in doc.RootElement.GetProperty("friends").EnumerateArray())
+                        data[f.GetProperty("name").GetString()] = f.Clone();
+                    ok = true;
+                }
+                catch (Exception ex) { Log.Write("Amis : " + ex.Message); }
+
+                var green = new SolidColorBrush(Color.FromRgb(0x3E, 0xE6, 0xA8));
+                var grey = new SolidColorBrush(Color.FromRgb(0x5A, 0x66, 0x7E));
+                var views = new List<FriendView>();
+                foreach (var name in names)
+                {
+                    var v = new FriendView { Name = name, Dot = grey, StatusBrush = (Brush)FindResource("Muted") };
+                    try { v.Avatar = new BitmapImage(new Uri($"https://mc-heads.net/avatar/{name}/64")); } catch { }
+                    if (!ok) v.Status = "Statut indisponible";
+                    else if (!data.TryGetValue(name, out var f)) v.Status = "Pas encore sur Velox Client";
+                    else
+                    {
+                        v.Name = f.GetProperty("name").GetString() ?? name;
+                        bool online = f.GetProperty("online").GetBoolean();
+                        string server = f.GetProperty("server").GetString() ?? "";
+                        long last = f.TryGetProperty("last", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.Number ? l.GetInt64() : 0;
+                        if (online)
+                        {
+                            v.Online = true;
+                            v.Dot = green;
+                            v.StatusBrush = green;
+                            v.Status = server switch
+                            {
+                                "menu" => "En jeu · dans les menus",
+                                "solo" => "En jeu · en solo",
+                                "private" => "En jeu · sur un serveur privé",
+                                "hidden" or "" => "En jeu",
+                                _ => "En jeu sur " + server
+                            };
+                            if (server is not ("menu" or "solo" or "private" or "hidden" or ""))
+                            {
+                                v.Server = server;
+                                v.JoinVis = Visibility.Visible;
+                            }
+                        }
+                        else v.Status = "Hors ligne · vu " + Ago(serverNow - last);
+                    }
+                    views.Add(v);
+                }
+                views = views.OrderByDescending(v => v.Online).ThenBy(v => v.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                FriendsList.ItemsSource = views;
+                int on = views.Count(v => v.Online);
+                FriendsCount.Text = $"{on} en jeu sur {views.Count}";
+                NavFriendsSub.Text = on == 0 ? "Tes potes Velox" : on == 1 ? "1 ami en jeu" : $"{on} amis en jeu";
+            }
+            finally { _friendsLoading = false; }
+        }
+
+        private async void AddFriend_Click(object sender, RoutedEventArgs e)
+        {
+            var name = FriendBox.Text.Trim();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z0-9_]{3,16}$"))
+            {
+                FriendsCount.Text = "Pseudo Minecraft invalide.";
+                return;
+            }
+            if (_settings.Friends.Any(f => f.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                FriendsCount.Text = name + " est déjà dans tes amis.";
+                return;
+            }
+            if (_settings.Friends.Count >= 50) { FriendsCount.Text = "50 amis maximum."; return; }
+            _settings.Friends.Add(name);
+            _settings.Save();
+            FriendBox.Text = "";
+            await RefreshFriendsAsync();
+        }
+
+        private void FriendBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) AddFriend_Click(sender, e);
+        }
+
+        private async void RemoveFriend_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not FriendView v) return;
+            _settings.Friends.RemoveAll(f => f.Equals(v.Name, StringComparison.OrdinalIgnoreCase));
+            _settings.Save();
+            await RefreshFriendsAsync();
+        }
+
+        private void JoinFriend_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not FriendView v || string.IsNullOrEmpty(v.Server)) return;
+            if (_gameRunning) { FriendsCount.Text = "Minecraft est déjà lancé : rejoins " + v.Server + " depuis le jeu."; return; }
+            _joinServer = v.Server;
+            GoHome();
+            StatusText.Text = "Lancement et connexion à " + v.Server + " (avec " + v.Name + ")...";
+            Play_Click(sender, e);
         }
 
         // ------------------------------------------------------------- skin
@@ -1905,5 +2043,17 @@ namespace ForpakLauncher
         private static readonly Brush NoBrush = new SolidColorBrush(Color.FromRgb(0x22, 0x30, 0x4A));
 
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+    }
+
+    public class FriendView
+    {
+        public string Name { get; set; }
+        public string Status { get; set; }
+        public string Server { get; set; }
+        public bool Online { get; set; }
+        public Brush Dot { get; set; }
+        public Brush StatusBrush { get; set; }
+        public ImageSource Avatar { get; set; }
+        public Visibility JoinVis { get; set; } = Visibility.Collapsed;
     }
 }

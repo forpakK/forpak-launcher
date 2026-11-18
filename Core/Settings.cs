@@ -45,6 +45,7 @@ namespace ForpakLauncher.Core
         public string CurseForgeApiKey { get; set; } = "";
         public List<ModpackInstance> Modpacks { get; set; } = new();
         public List<ServerEntry> Servers { get; set; } = new();
+        public List<string> Friends { get; set; } = new();
         public bool CloseOnLaunch { get; set; } = false;
         public string LastVersion { get; set; } = "";
         public string LastPack { get; set; }

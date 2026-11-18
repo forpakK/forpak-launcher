@@ -42,27 +42,65 @@ public final class VeloxUsers {
         t.start();
     }
 
+    private static volatile String token;      // jeton donné par le serveur Velox après vérification Mojang
+    private static volatile String myId;
+    private static String lastServer = null;
+    private static long lastStatus = 0;
+
     private static void loop() {
-        long lastPing = 0;
+        long lastPing = 0, lastRefresh = 0;
         while (true) {
             try {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 boolean inWorld = mc != null && mc.world != null;
                 long now = System.currentTimeMillis();
-                if (now - lastPing > 15 * 60 * 1000 && ping()) lastPing = now;
-                if (inWorld) refresh();
-                Thread.sleep(inWorld ? 60_000 : 30_000);
+                if ((token == null || now - lastPing > 15 * 60 * 1000) && now - lastPing > 60_000) {
+                    lastPing = now;
+                    ping();
+                }
+                if (token != null) status(mc);
+                if (inWorld && now - lastRefresh > 60_000) { lastRefresh = now; refresh(); }
+                Thread.sleep(10_000);
             } catch (InterruptedException e) {
                 return;
             } catch (Throwable ignored) {
-                try { Thread.sleep(60_000); } catch (InterruptedException e) { return; }
+                try { Thread.sleep(30_000); } catch (InterruptedException e) { return; }
             }
         }
     }
 
+    /** Où je joue : adresse du serveur, « solo », « menu », « private » ou « hidden ». */
+    private static String currentServer(MinecraftClient mc) {
+        if (mc.world == null) return "menu";
+        if (ForpakClient.CONFIG != null && !ForpakClient.CONFIG.shareServer) return "hidden";
+        if (mc.isInSingleplayer()) return "solo";
+        var entry = mc.getCurrentServerEntry();
+        if (entry == null || entry.address == null) return "hidden";
+        String a = entry.address.trim().toLowerCase();
+        if (a.startsWith("localhost") || a.startsWith("127.") || a.startsWith("192.168.") || a.startsWith("10.")
+                || a.matches("^172\\.(1[6-9]|2\\d|3[01])\\..*") || a.endsWith(".local")) return "private";
+        return a.replaceAll("[^a-z0-9.\\-:_]", "");
+    }
+
+    /** Envoie mon statut : tout de suite si je change de serveur, sinon chaque minute. */
+    private static void status(MinecraftClient mc) throws Exception {
+        String server = currentServer(mc);
+        long now = System.currentTimeMillis();
+        if (server.equals(lastServer) && now - lastStatus < 60_000) return;
+        JsonObject b = new JsonObject();
+        b.addProperty("id", myId);
+        b.addProperty("token", token);
+        b.addProperty("server", server);
+        var r = HTTP.send(HttpRequest.newBuilder(URI.create(API + "/status"))
+                .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(b.toString())).build(), HttpResponse.BodyHandlers.discarding());
+        if (r.statusCode() == 403) { token = null; return; }      // jeton périmé : on se re-signale
+        lastServer = server;
+        lastStatus = now;
+    }
+
     /** Se signale : on prouve à Mojang qu'on est bien ce compte, puis le serveur Velox vérifie. */
     private static boolean ping() throws Exception {
-        if (ForpakClient.CONFIG != null && !ForpakClient.CONFIG.veloxIcon) return false;
         var session = MinecraftClient.getInstance().getSession();
         UUID uuid = session.getUuidOrNull();
         String token = session.getAccessToken();
@@ -86,8 +124,13 @@ public final class VeloxUsers {
         ping.addProperty("serverId", serverId);
         var r2 = HTTP.send(HttpRequest.newBuilder(URI.create(API + "/ping"))
                 .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(ping.toString())).build(), HttpResponse.BodyHandlers.discarding());
-        return r2.statusCode() == 200;
+                .POST(HttpRequest.BodyPublishers.ofString(ping.toString())).build(), HttpResponse.BodyHandlers.ofString());
+        if (r2.statusCode() != 200) return false;
+        var t = JsonParser.parseString(r2.body()).getAsJsonObject().get("token");
+        myId = uuid.toString().replace("-", "");
+        token = t == null ? null : t.getAsString();
+        lastServer = null;                                             // renvoie le statut tout de suite
+        return true;
     }
 
     private static void refresh() throws Exception {
